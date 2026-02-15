@@ -16,6 +16,10 @@ Shader "OpenVDB/HDRP/Standard"
         [Toggle(ENABLE_DIRECTIONAL_LIGHT)] _EnableDirectionalLight("Enable Directional Light", Float) = 1
         [Toggle(ENABLE_AMBIENT_LIGHT)] _EnableAmbientLight("Enable Ambient Light", Float) = 1
         [Toggle(ENABLE_HDRP_LIGHT_DATA)] _EnableHDRPLightData("Auto HDRP Light (requires HDRP light buffer)", Float) = 1
+
+        // Depth options
+        [Toggle(ENABLE_DEPTH_WRITE)] _EnableDepthWrite("Write Depth (voxel-accurate)", Float) = 1
+        [Toggle(ENABLE_TRACE_DISTANCE_LIMITED)] _EnableSceneDepthClip("Clip Against Scene Depth", Float) = 1
     }
 
     SubShader
@@ -36,7 +40,7 @@ Shader "OpenVDB/HDRP/Standard"
             }
 
             Blend SrcAlpha OneMinusSrcAlpha
-            ZWrite On
+            ZWrite Off
             ZTest LEqual
             Cull [_Cull]
 
@@ -50,45 +54,14 @@ Shader "OpenVDB/HDRP/Standard"
             #pragma shader_feature_local ENABLE_DIRECTIONAL_LIGHT
             #pragma shader_feature_local ENABLE_AMBIENT_LIGHT
             #pragma shader_feature_local ENABLE_HDRP_LIGHT_DATA
+            #pragma shader_feature_local ENABLE_DEPTH_WRITE
+            #pragma shader_feature_local ENABLE_TRACE_DISTANCE_LIMITED
 
             #define ENABLE_CAMERA_INSIDE_CUBE
             #define ENABLE_SAMPLING_START_OFFSET
-            #define ENABLE_TRACE_DISTANCE_LIMITED
 
             #pragma multi_compile_instancing
             #pragma instancing_options renderinglayer
-
-            #include "VolumeHDRP.hlsl"
-            ENDHLSL
-        }
-
-        Pass
-        {
-            Name "SRPDefaultUnlit"
-            Tags
-            {
-                "LightMode" = "SRPDefaultUnlit"
-            }
-
-            Blend SrcAlpha OneMinusSrcAlpha
-            ZWrite On
-            ZTest LEqual
-            Cull [_Cull]
-
-            HLSLPROGRAM
-            #pragma target 4.5
-            #pragma only_renderers d3d11 vulkan metal playstation xboxone xboxseries switch
-
-            #pragma vertex Vert
-            #pragma fragment Frag
-
-            #pragma shader_feature_local ENABLE_DIRECTIONAL_LIGHT
-            #pragma shader_feature_local ENABLE_AMBIENT_LIGHT
-            #pragma shader_feature_local ENABLE_HDRP_LIGHT_DATA
-
-            #define ENABLE_CAMERA_INSIDE_CUBE
-            #define ENABLE_SAMPLING_START_OFFSET
-            #define ENABLE_TRACE_DISTANCE_LIMITED
 
             #include "VolumeHDRP.hlsl"
             ENDHLSL

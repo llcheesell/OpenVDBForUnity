@@ -16,8 +16,8 @@
 TEXTURE3D(_Volume);
 SAMPLER(sampler_Volume);
 
-// _CameraDepthTexture and sampler_CameraDepthTexture are already declared
-// in HDRP's ShaderVariables.hlsl (as TEXTURE2D_X for stereo rendering support)
+// _CameraDepthTexture is declared in HDRP's ShaderVariables.hlsl as TEXTURE2D_X.
+// Use LoadCameraDepth(uint2) or SampleCameraDepth(float2) to access it.
 
 half _Intensity;
 half _ShadowSteps;
@@ -51,14 +51,15 @@ struct Varyings
     float4 positionCS : SV_POSITION;
     float3 positionWS : TEXCOORD1;
     float4 positionNDC : TEXCOORD2;
-    float4 screenPos : TEXCOORD3;
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
 struct FragOutput
 {
     float4 color : SV_Target0;
+#ifdef ENABLE_DEPTH_WRITE
     float depth : SV_Depth;
+#endif
 };
 
 Varyings Vert(Attributes input)
@@ -70,7 +71,6 @@ Varyings Vert(Attributes input)
     output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
     output.positionCS = TransformWorldToHClip(output.positionWS);
     output.positionNDC = output.positionCS;
-    output.screenPos = ComputeScreenPos(output.positionCS);
     return output;
 }
 
@@ -120,12 +120,31 @@ FragOutput Frag(Varyings input)
     float3 end = ray.origin + ray.dir * tfar;
 
     #ifdef ENABLE_TRACE_DISTANCE_LIMITED
-    float2 uv = input.screenPos.xy / input.screenPos.w;
-    float rawDepth = SAMPLE_TEXTURE2D_X_LOD(_CameraDepthTexture, sampler_CameraDepthTexture, uv, 0).r;
-    float sceneDepth = LinearEyeDepth(rawDepth, _ZBufferParams);
+    {
+        // Use HDRP's LoadCameraDepth to read the opaque depth buffer
+        // input.positionCS.xy is the pixel coordinate (SV_POSITION semantic)
+        uint2 pixelCoords = uint2(input.positionCS.xy);
+        float rawDepth = LoadCameraDepth(pixelCoords);
 
-    float tfar2 = length(ray.origin - LocalizePosition(sceneDepth * cameraDir + cameraPos, UNITY_MATRIX_I_M));
-    end = ray.origin + ray.dir * min(tfar, tfar2);
+        // Reconstruct world-space position of the scene geometry at this pixel
+        // using HDRP's inverse view-projection matrix
+        float2 screenUV = input.positionCS.xy * _ScreenSize.zw;
+        float3 sceneWorldPos = ComputeWorldSpacePosition(screenUV, rawDepth, UNITY_MATRIX_I_VP);
+
+        // Convert scene world position to volume's local space
+        float3 sceneLocalPos = LocalizePosition(sceneWorldPos, UNITY_MATRIX_I_M);
+
+        // Compute the distance from ray origin to scene geometry along the ray direction
+        // Use dot product (projection onto ray) instead of raw distance to handle oblique angles
+        float3 toScene = sceneLocalPos - ray.origin;
+        float tfar2 = dot(toScene, ray.dir);
+
+        // Only limit if scene geometry is in front of us (tfar2 > 0)
+        if (tfar2 > 0)
+        {
+            end = ray.origin + ray.dir * min(tfar, tfar2);
+        }
+    }
     #endif
 
     float dist = length(end - start);
@@ -158,7 +177,7 @@ FragOutput Frag(Varyings input)
     float shadowThreshold = -log(_ShadowThreshold) / length(shadowDensity);
 
     float3 p = start;
-    float3 depth = end;
+    float3 depthPos = end;
     bool depthtest = true;
 
     float curdensity = 0.0;
@@ -178,7 +197,7 @@ FragOutput Frag(Varyings input)
 
             if (depthtest)
             {
-                depth = p;
+                depthPos = p;
                 depthtest = false;
             }
 
@@ -241,8 +260,12 @@ FragOutput Frag(Varyings input)
     FragOutput o;
     o.color = float4(lightenergy, 1 - transmittance);
 
-    float4 depthClipPos = TransformWorldToHClip(TransformObjectToWorld(depth));
-    o.depth = ComputeOutputDepth(depthClipPos);
+#ifdef ENABLE_DEPTH_WRITE
+    // Write depth at the first voxel hit position
+    float3 depthWorldPos = TransformObjectToWorld(depthPos);
+    float4 depthClipPos = TransformWorldToHClip(depthWorldPos);
+    o.depth = depthClipPos.z / depthClipPos.w;
+#endif
     return o;
 }
 
