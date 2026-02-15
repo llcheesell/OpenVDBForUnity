@@ -55,7 +55,7 @@ Shader "OpenVDB/HDRP/Standard"
             #define ENABLE_SAMPLING_START_OFFSET
             #define ENABLE_TRACE_DISTANCE_LIMITED
 
-            #pragma multi_instance_instancing
+            #pragma multi_compile_instancing
             #pragma instancing_options renderinglayer
 
             #include "VolumeHDRP.hlsl"

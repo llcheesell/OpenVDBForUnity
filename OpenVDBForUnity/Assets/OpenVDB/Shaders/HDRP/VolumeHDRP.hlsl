@@ -4,7 +4,7 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/ShaderVariables.hlsl"
-#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Lighting/LightDefinition.hlsl"
+#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Lighting/LightDefinition.cs.hlsl"
 
 #include "VolumeHDRPCamera.hlsl"
 #include "VolumeHDRPUtils.hlsl"
@@ -16,10 +16,8 @@
 TEXTURE3D(_Volume);
 SAMPLER(sampler_Volume);
 
-#ifdef ENABLE_TRACE_DISTANCE_LIMITED
-TEXTURE2D(_CameraDepthTexture);
-SAMPLER(sampler_CameraDepthTexture);
-#endif
+// _CameraDepthTexture and sampler_CameraDepthTexture are already declared
+// in HDRP's ShaderVariables.hlsl (as TEXTURE2D_X for stereo rendering support)
 
 half _Intensity;
 half _ShadowSteps;
@@ -123,7 +121,7 @@ FragOutput Frag(Varyings input)
 
     #ifdef ENABLE_TRACE_DISTANCE_LIMITED
     float2 uv = input.screenPos.xy / input.screenPos.w;
-    float rawDepth = SAMPLE_TEXTURE2D_LOD(_CameraDepthTexture, sampler_CameraDepthTexture, uv, 0).r;
+    float rawDepth = SAMPLE_TEXTURE2D_X_LOD(_CameraDepthTexture, sampler_CameraDepthTexture, uv, 0).r;
     float sceneDepth = LinearEyeDepth(rawDepth, _ZBufferParams);
 
     float tfar2 = length(ray.origin - LocalizePosition(sceneDepth * cameraDir + cameraPos, UNITY_MATRIX_I_M));
