@@ -185,6 +185,8 @@ oiVolume::oiVolume(const openvdb::FloatGrid& grid, const openvdb::Coord& extents
 
 oiVolume::~oiVolume()
 {
+    delete m_summary;
+    m_summary = nullptr;
 }
 
 void oiVolume::reset()

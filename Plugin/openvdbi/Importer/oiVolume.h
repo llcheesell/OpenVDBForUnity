@@ -15,8 +15,8 @@ public:
     void fillTextureBuffer(oiVolumeData& data) const;
     const oiVolumeSummary& getSummary() const;
 private:
-    oiVolumeSummary* m_summary;
+    oiVolumeSummary* m_summary = nullptr;
     float m_scaleFactor = 1.0f;
     const openvdb::FloatGrid& m_grid;
-    const openvdb::Coord& m_extents;
+    openvdb::Coord m_extents;
 };
