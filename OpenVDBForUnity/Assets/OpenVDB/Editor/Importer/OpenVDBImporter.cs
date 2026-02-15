@@ -1,10 +1,8 @@
-#if UNITY_2017_1_OR_NEWER
-
 using System;
 using UnityEngine;
 using System.IO;
 using System.Linq;
-using UnityEditor.Experimental.AssetImporters;
+using UnityEditor.AssetImporters;
 using System.Text.RegularExpressions;
 using Extensions;
 using UnityEditor;
@@ -65,12 +63,8 @@ namespace OpenVDB
                 subassets.Add(streamDescriptor.name, streamDescriptor);
                 GenerateSubAssets(subassets, vdbStream, streamDescriptor);
 
-#if UNITY_2017_3_OR_NEWER
                 ctx.AddObjectToAsset(go.name, go);
                 ctx.SetMainObject(go);
-#else
-                ctx.SetMainAsset(go.name, go);
-#endif
             }
         }
 
@@ -100,11 +94,7 @@ namespace OpenVDB
             }
             public void Add(string identifier, Object asset)
             {
-#if UNITY_2017_3_OR_NEWER
                 m_ctx.AddObjectToAsset(identifier, asset);
-#else
-                m_ctx.AddSubAsset(identifier, asset);
-#endif
             }
         }
 
@@ -160,5 +150,3 @@ namespace OpenVDB
         }
     }
 }
-
-#endif

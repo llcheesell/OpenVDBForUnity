@@ -28,6 +28,7 @@ Shader "OpenVDB/Standard"
         Tags
         {
             "Queue"="Transparent"
+            "RenderType"="Transparent"
         }
         Cull [_Cull]
         Blend SrcAlpha OneMinusSrcAlpha
@@ -37,8 +38,7 @@ Shader "OpenVDB/Standard"
         {
             Tags
             {
-                "RenderPipeline" = "HDRenderPipeline"
-                "RenderType"="Transparent"
+                "LightMode"="ForwardBase"
             }
 
             ZWrite On
@@ -48,23 +48,8 @@ Shader "OpenVDB/Standard"
             #include "./VolumeStandard.cginc"
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_fwdbase
             ENDCG
         }
-
-        // TODO:: Implement the ShadowCaster Pass for HDRP
-        /*
-        Pass
-        {
-            Tags{ "LightMode" = "ShadowCaster" }
-
-            CGPROGRAM
-            #include "./VolumeShadowCaster.cginc"
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma multi_compile_shadowcaster
-            // #pragma fragmentoption ARB_precision_hint_fastest
-            ENDCG
-        }
-        */
     }
 }

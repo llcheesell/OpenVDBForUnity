@@ -32,7 +32,7 @@ namespace OpenVDB.PackageBuild
             new LibraryPackageInfo { target = BuildTarget.StandaloneWindows, arch = "x86", packageId = "07a258b63529b1a6b9517b05bd8057994689b8eb" },
             new LibraryPackageInfo { target = BuildTarget.StandaloneWindows64, arch = "x86_64", packageId = "2c0ede688cb6609cf77dafa57a7200b861971804" },
             new LibraryPackageInfo { target = BuildTarget.StandaloneOSX, arch = "x86_64", packageId = "267209270177540f16ec5a6a007b22ed0457c5b2" },
-            new LibraryPackageInfo { target = BuildTarget.StandaloneLinuxUniversal, arch = "x86_64", packageId = "e8de85f12f9f4405cbaf1c4b62e665d6b58020a9" },
+            new LibraryPackageInfo { target = BuildTarget.StandaloneLinux64, arch = "x86_64", packageId = "e8de85f12f9f4405cbaf1c4b62e665d6b58020a9" },
         };
 
         public static string MakeShortAssetPath(string fullpath)
@@ -125,8 +125,9 @@ namespace OpenVDB.PackageBuild
                 {
                     System.Threading.Thread.Sleep(100);
                 }
-                if(request.isHttpError || request.isNetworkError)
+                if(request.result != UnityWebRequest.Result.Success)
                 {
+                    Debug.LogErrorFormat("Download error: {0}", request.error);
                     return null;
                 }
                 var handler = request.downloadHandler;
