@@ -2,7 +2,8 @@
     "name": "jp.kazuki.OpenVDB.Editor",
     "rootNamespace": "",
     "references": [
-        "jp.kazuki.OpenVDB"
+        "jp.kazuki.OpenVDB",
+        "Unity.Timeline"
     ],
     "includePlatforms": [
         "Editor"

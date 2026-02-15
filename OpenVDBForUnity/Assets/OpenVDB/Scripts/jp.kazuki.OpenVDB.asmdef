@@ -1,7 +1,9 @@
 {
     "name": "jp.kazuki.OpenVDB",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "Unity.Timeline"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
