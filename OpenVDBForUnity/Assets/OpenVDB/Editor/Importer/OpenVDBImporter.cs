@@ -104,6 +104,12 @@ namespace OpenVDB
                         // Fallback to built-in if HDRP shader not found
                         shader = Shader.Find("OpenVDB/Standard");
                     }
+                    if (shader == null)
+                    {
+                        // Last resort fallback
+                        Debug.LogWarning($"[OpenVDB] Could not find shader '{shaderName}' or 'OpenVDB/Standard'. Using Standard shader as fallback.");
+                        shader = Shader.Find("Standard");
+                    }
 
                     m_defaultMaterial = new Material(shader)
                     {
