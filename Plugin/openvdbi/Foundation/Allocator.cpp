@@ -9,7 +9,8 @@ void* AlignedMalloc(size_t size, size_t alignment)
     return _mm_malloc(size, alignment);
 #else
     void *ret = nullptr;
-    posix_memalign(&ret, alignment, size);
+    if (posix_memalign(&ret, alignment, size) != 0)
+        ret = nullptr;
     return ret;
 #endif
 }
