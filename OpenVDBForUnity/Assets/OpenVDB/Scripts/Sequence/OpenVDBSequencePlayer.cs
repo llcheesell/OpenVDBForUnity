@@ -25,7 +25,7 @@ namespace OpenVDB
     /// - Timeline integration via OpenVDBTimelineClip
     /// </summary>
     [ExecuteAlways]
-    [RequireComponent(typeof(MeshRenderer))]
+    [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
     public class OpenVDBSequencePlayer : MonoBehaviour, IDisposable
     {
         public enum PlaybackMode { Loop, Once, PingPong }
@@ -239,6 +239,12 @@ namespace OpenVDB
             }
 
             m_initialized = true;
+
+            // Auto-load and display the first frame so we get immediate visual feedback
+            if (m_resolvedPaths != null && m_resolvedPaths.Length > 0)
+            {
+                ApplyFrame(0);
+            }
         }
 
         void ResolvePaths()

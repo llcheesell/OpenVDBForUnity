@@ -86,42 +86,69 @@ namespace OpenVDB.Editor
 
             EditorGUILayout.Space();
 
-            // Runtime info
-            if (Application.isPlaying && player != null)
+            // Preview & Runtime controls
+            if (player != null)
             {
-                EditorGUILayout.LabelField("Runtime", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField("Preview / Runtime", EditorStyles.boldLabel);
+
                 EditorGUI.BeginDisabledGroup(true);
                 EditorGUILayout.IntField("Total Frames", player.frameCount);
                 EditorGUILayout.IntField("Current Frame", player.currentFrame);
-                EditorGUILayout.Toggle("Playing", player.isPlaying);
+                if (Application.isPlaying)
+                    EditorGUILayout.Toggle("Playing", player.isPlaying);
                 EditorGUI.EndDisabledGroup();
 
                 EditorGUILayout.Space();
 
+                if (Application.isPlaying)
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    if (GUILayout.Button(player.isPlaying ? "Pause" : "Play"))
+                    {
+                        if (player.isPlaying)
+                            player.Pause();
+                        else
+                            player.Play();
+                    }
+                    if (GUILayout.Button("Stop"))
+                    {
+                        player.Stop();
+                    }
+                    EditorGUILayout.EndHorizontal();
+                }
+
+                // Frame scrubber (works in both Edit and Play mode)
+                if (player.frameCount > 0)
+                {
+                    var newFrame = EditorGUILayout.IntSlider("Scrub Frame", player.currentFrame, 0,
+                        Mathf.Max(0, player.frameCount - 1));
+                    if (newFrame != player.currentFrame)
+                    {
+                        player.currentFrame = newFrame;
+                    }
+                }
+
+                EditorGUILayout.Space();
+
                 EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button(player.isPlaying ? "Pause" : "Play"))
+                if (GUILayout.Button("Reload"))
                 {
-                    if (player.isPlaying)
-                        player.Pause();
-                    else
-                        player.Play();
+                    player.RefreshFiles();
                 }
-                if (GUILayout.Button("Stop"))
-                {
-                    player.Stop();
-                }
-                EditorGUILayout.EndHorizontal();
-
-                var newFrame = EditorGUILayout.IntSlider("Scrub Frame", player.currentFrame, 0,
-                    Mathf.Max(0, player.frameCount - 1));
-                if (newFrame != player.currentFrame)
-                {
-                    player.currentFrame = newFrame;
-                }
-
                 if (GUILayout.Button("Clear Cache"))
                 {
                     player.ClearCache();
+                }
+                EditorGUILayout.EndHorizontal();
+
+                if (player.frameCount == 0)
+                {
+                    EditorGUILayout.HelpBox(
+                        "No VDB files found. Check that:\n" +
+                        "- Files exist in StreamingAssets/<directory>\n" +
+                        "- File pattern matches (default: *.vdb)\n" +
+                        "Click 'Reload' after changing settings.",
+                        MessageType.Warning);
                 }
             }
 
