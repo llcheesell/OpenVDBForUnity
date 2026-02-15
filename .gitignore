@@ -15,9 +15,11 @@ x86/
 x86.meta
 !**/Plugins/x86_64/
 !**/Plugins/x86_64/*.so
+!**/Plugins/x86_64/*.dll
 !**/Plugins/x86_64/*.meta
 !**/Plugins/x86/
 !**/Plugins/x86/*.so
+!**/Plugins/x86/*.dll
 !**/Plugins/x86/*.meta
 
 # Visual Studio cache directory
@@ -50,6 +52,27 @@ sysinfo.txt
 # Builds
 *.apk
 *.unitypackage
+
+# Unity user-specific settings
+UserSettings/
+
+# Unity logs
+[Ll]ogs/
+
+# Unity auto-generated project settings (not required for version control)
+**/ProjectSettings/MemorySettings.asset
+**/ProjectSettings/PackageManagerSettings.asset
+**/ProjectSettings/VFXManager.asset
+**/ProjectSettings/VersionControlSettings.asset
+
+# Unity package lock (auto-resolved per environment)
+**/Packages/packages-lock.json
+
+# Claude Code local settings
+.claude/
+
+# Windows artifacts
+nul
 
 # Test resource
 *.vdb
