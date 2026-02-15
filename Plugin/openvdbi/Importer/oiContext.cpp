@@ -78,6 +78,8 @@ oiContext::oiContext(int uid)
 
 oiContext::~oiContext()
 {
+    delete m_volume;
+    m_volume = nullptr;
 }
 
 const std::string& oiContext::getPath() const
@@ -140,7 +142,7 @@ bool oiContext::load(const char *in_path)
     }
     DebugLog("oiContext::load: file.open succeed");
 
-    m_archive = file.copy().get();
+    m_archive = file.copy();
     openvdb::GridPtrVecPtr grids = file.getGrids();
     openvdb::GridCPtrVec allGrids;
     allGrids.insert(allGrids.end(), grids->begin(), grids->end());
@@ -152,10 +154,38 @@ bool oiContext::load(const char *in_path)
         DebugLog("VDB file is empty");
         return true;
     }
-    m_grid = openvdb::gridConstPtrCast<openvdb::FloatGrid>(allGrids[0]);
+
+    // Find first FloatGrid in the file
+    m_grid = nullptr;
+    for (const auto& gridPtr : allGrids)
+    {
+        m_grid = openvdb::gridConstPtrCast<openvdb::FloatGrid>(gridPtr);
+        if (m_grid)
+        {
+            DebugLog("Found FloatGrid: %s", gridPtr->getName().c_str());
+            break;
+        }
+    }
+
+    if (!m_grid)
+    {
+        DebugLog("No FloatGrid found in VDB file. Available grids:");
+        for (const auto& gridPtr : allGrids)
+        {
+            DebugLog("  Grid '%s' type: %s", gridPtr->getName().c_str(), gridPtr->valueType().c_str());
+        }
+        return false;
+    }
+
     if(m_config.max_texture_size != 0)
     {
-        m_extents.reset(m_config.max_texture_size);
+        m_extents = openvdb::Coord(m_config.max_texture_size, m_config.max_texture_size, m_config.max_texture_size);
+    }
+
+    if (m_volume)
+    {
+        delete m_volume;
+        m_volume = nullptr;
     }
     m_volume = new oiVolume(*m_grid, m_extents);
     m_volume->setScaleFactor(m_config.scale_factor);

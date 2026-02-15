@@ -1,10 +1,8 @@
-#if UNITY_2017_1_OR_NEWER
-
 using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
-using UnityEditor.Experimental.AssetImporters;
+using UnityEditor.AssetImporters;
 
 namespace OpenVDB
 {
@@ -183,5 +181,3 @@ namespace OpenVDB
         }
     }
 }
-
-#endif

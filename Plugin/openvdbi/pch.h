@@ -17,7 +17,7 @@
 #include <locale>
 #include <codecvt>
 #include <openvdb/openvdb.h>
-#include <OpenEXR/ImathVec.h>
+#include <Imath/ImathVec.h>
 
 #define openvdbiImpl
 

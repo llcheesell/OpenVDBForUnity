@@ -1,12 +1,16 @@
-PROJECT(OpenVDBNativePlugin)
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.12)
+project(OpenVDBNativePlugin)
 
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-ADD_DEFINITIONS(-std=c++11)
+# Find system-installed dependencies
+find_package(OpenVDB REQUIRED)
+find_package(TBB REQUIRED)
+find_package(Imath QUIET)
 
-LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(AddPlugin)
 
-ADD_SUBDIRECTORY(openvdbi)
+add_subdirectory(openvdbi)

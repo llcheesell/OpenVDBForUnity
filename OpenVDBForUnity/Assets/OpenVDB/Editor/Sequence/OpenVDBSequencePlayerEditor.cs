@@ -1,0 +1,139 @@
+using UnityEditor;
+using UnityEngine;
+
+namespace OpenVDB.Editor
+{
+    [CustomEditor(typeof(OpenVDBSequencePlayer))]
+    public class OpenVDBSequencePlayerEditor : UnityEditor.Editor
+    {
+        SerializedProperty m_fileSource;
+        SerializedProperty m_directory;
+        SerializedProperty m_filePattern;
+        SerializedProperty m_filePaths;
+        SerializedProperty m_frameRate;
+        SerializedProperty m_playbackMode;
+        SerializedProperty m_playOnAwake;
+        SerializedProperty m_cacheSize;
+        SerializedProperty m_preloadCount;
+        SerializedProperty m_textureMaxSize;
+        SerializedProperty m_scaleFactor;
+
+        void OnEnable()
+        {
+            m_fileSource = serializedObject.FindProperty("m_fileSource");
+            m_directory = serializedObject.FindProperty("m_directory");
+            m_filePattern = serializedObject.FindProperty("m_filePattern");
+            m_filePaths = serializedObject.FindProperty("m_filePaths");
+            m_frameRate = serializedObject.FindProperty("m_frameRate");
+            m_playbackMode = serializedObject.FindProperty("m_playbackMode");
+            m_playOnAwake = serializedObject.FindProperty("m_playOnAwake");
+            m_cacheSize = serializedObject.FindProperty("m_cacheSize");
+            m_preloadCount = serializedObject.FindProperty("m_preloadCount");
+            m_textureMaxSize = serializedObject.FindProperty("m_textureMaxSize");
+            m_scaleFactor = serializedObject.FindProperty("m_scaleFactor");
+        }
+
+        public override void OnInspectorGUI()
+        {
+            serializedObject.Update();
+
+            var player = target as OpenVDBSequencePlayer;
+
+            EditorGUILayout.LabelField("OpenVDB Sequence Player", EditorStyles.boldLabel);
+            EditorGUILayout.Space();
+
+            // File source
+            EditorGUILayout.LabelField("File Source", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(m_fileSource);
+
+            var source = (OpenVDBSequencePlayer.FileSource)m_fileSource.enumValueIndex;
+            if (source == OpenVDBSequencePlayer.FileSource.Directory)
+            {
+                EditorGUILayout.PropertyField(m_directory, new GUIContent("Directory (StreamingAssets)"));
+                EditorGUILayout.PropertyField(m_filePattern);
+                EditorGUILayout.HelpBox(
+                    "Files will be sorted alphabetically.\n" +
+                    "Use naming like: smoke_001.vdb, smoke_002.vdb, ...",
+                    MessageType.Info);
+            }
+            else
+            {
+                EditorGUILayout.PropertyField(m_filePaths, new GUIContent("File Paths (StreamingAssets)"));
+            }
+
+            EditorGUILayout.Space();
+
+            // Playback
+            EditorGUILayout.LabelField("Playback", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(m_frameRate);
+            EditorGUILayout.PropertyField(m_playbackMode);
+            EditorGUILayout.PropertyField(m_playOnAwake);
+
+            EditorGUILayout.Space();
+
+            // Performance
+            EditorGUILayout.LabelField("Performance", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(m_cacheSize, new GUIContent("Cache Size (frames)"));
+            EditorGUILayout.PropertyField(m_preloadCount, new GUIContent("Preload Ahead"));
+            EditorGUILayout.PropertyField(m_textureMaxSize, new GUIContent("Texture Max Size"));
+            EditorGUILayout.PropertyField(m_scaleFactor);
+
+            var cacheMemoryMB = EstimateCacheMemoryMB(m_cacheSize.intValue, m_textureMaxSize.intValue);
+            EditorGUILayout.HelpBox(
+                $"Estimated max cache memory: ~{cacheMemoryMB:F0} MB\n" +
+                $"({m_cacheSize.intValue} frames x {m_textureMaxSize.intValue}^3 x 16 bytes)",
+                MessageType.Info);
+
+            EditorGUILayout.Space();
+
+            // Runtime info
+            if (Application.isPlaying && player != null)
+            {
+                EditorGUILayout.LabelField("Runtime", EditorStyles.boldLabel);
+                EditorGUI.BeginDisabledGroup(true);
+                EditorGUILayout.IntField("Total Frames", player.frameCount);
+                EditorGUILayout.IntField("Current Frame", player.currentFrame);
+                EditorGUILayout.Toggle("Playing", player.isPlaying);
+                EditorGUI.EndDisabledGroup();
+
+                EditorGUILayout.Space();
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button(player.isPlaying ? "Pause" : "Play"))
+                {
+                    if (player.isPlaying)
+                        player.Pause();
+                    else
+                        player.Play();
+                }
+                if (GUILayout.Button("Stop"))
+                {
+                    player.Stop();
+                }
+                EditorGUILayout.EndHorizontal();
+
+                var newFrame = EditorGUILayout.IntSlider("Scrub Frame", player.currentFrame, 0,
+                    Mathf.Max(0, player.frameCount - 1));
+                if (newFrame != player.currentFrame)
+                {
+                    player.currentFrame = newFrame;
+                }
+
+                if (GUILayout.Button("Clear Cache"))
+                {
+                    player.ClearCache();
+                }
+            }
+
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        static float EstimateCacheMemoryMB(int cacheSize, int textureSize)
+        {
+            if (textureSize <= 0) textureSize = 256;
+            long bytesPerFrame = (long)textureSize * textureSize * textureSize * 16; // RGBA float
+            long totalBytes = bytesPerFrame * cacheSize;
+            return totalBytes / (1024f * 1024f);
+        }
+    }
+}

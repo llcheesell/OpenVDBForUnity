@@ -1,16 +1,24 @@
 {
     "name": "jp.kazuki.OpenVDB.Tests",
+    "rootNamespace": "",
     "references": [
         "jp.kazuki.OpenVDB",
         "jp.kazuki.OpenVDB.PackageBuild",
         "jp.kazuki.OpenVDB.Editor"
     ],
-    "optionalUnityReferences": [
-        "TestAssemblies"
-    ],
     "includePlatforms": [
         "Editor"
     ],
     "excludePlatforms": [],
-    "allowUnsafeCode": false
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

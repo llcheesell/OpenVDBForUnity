@@ -22,11 +22,11 @@ private:
     void reset();
 
     std::string m_path;
-    openvdb::io::Archive* m_archive;
+    std::shared_ptr<openvdb::io::Archive> m_archive;
     openvdb::FloatGrid::ConstPtr m_grid;
     openvdb::Coord m_extents = {256, 256, 256};
 
-    oiVolume* m_volume;
+    oiVolume* m_volume = nullptr;
     oiConfig m_config;
 };
 

@@ -1,11 +1,10 @@
-#if UNITY_2017_1_OR_NEWER
-
 using System;
 using UnityEngine;
 using System.IO;
 using System.Linq;
-using UnityEditor.Experimental.AssetImporters;
+using UnityEditor.AssetImporters;
 using System.Text.RegularExpressions;
+using UnityEngine.Rendering;
 using Extensions;
 using UnityEditor;
 using Object = UnityEngine.Object;
@@ -13,7 +12,7 @@ using Object = UnityEngine.Object;
 namespace OpenVDB
 {
     [Serializable]
-    [ScriptedImporter(1, "vdb")]
+    [ScriptedImporter(2, "vdb")]
     public class OpenVDBImporter : ScriptedImporter
     {
         [SerializeField] public OpenVDBStreamSettings streamSettings = new OpenVDBStreamSettings();
@@ -33,6 +32,18 @@ namespace OpenVDB
             {
                 return Path.Combine(Application.dataPath, assetPath);
             }
+        }
+
+        static bool IsHDRP()
+        {
+            var pipeline = GraphicsSettings.currentRenderPipeline;
+            if (pipeline == null) return false;
+            return pipeline.GetType().Name.Contains("HDRenderPipelineAsset");
+        }
+
+        static string GetDefaultShaderName()
+        {
+            return IsHDRP() ? "OpenVDB/HDRP/Standard" : "OpenVDB/Standard";
         }
 
         public override void OnImportAsset(AssetImportContext ctx)
@@ -65,12 +76,8 @@ namespace OpenVDB
                 subassets.Add(streamDescriptor.name, streamDescriptor);
                 GenerateSubAssets(subassets, vdbStream, streamDescriptor);
 
-#if UNITY_2017_3_OR_NEWER
                 ctx.AddObjectToAsset(go.name, go);
                 ctx.SetMainObject(go);
-#else
-                ctx.SetMainAsset(go.name, go);
-#endif
             }
         }
 
@@ -89,7 +96,22 @@ namespace OpenVDB
                 get
                 {
                     if (m_defaultMaterial != null) return m_defaultMaterial;
-                    m_defaultMaterial = new Material(Shader.Find("OpenVDB/Standard"))
+
+                    var shaderName = GetDefaultShaderName();
+                    var shader = Shader.Find(shaderName);
+                    if (shader == null)
+                    {
+                        // Fallback to built-in if HDRP shader not found
+                        shader = Shader.Find("OpenVDB/Standard");
+                    }
+                    if (shader == null)
+                    {
+                        // Last resort fallback
+                        Debug.LogWarning($"[OpenVDB] Could not find shader '{shaderName}' or 'OpenVDB/Standard'. Using Standard shader as fallback.");
+                        shader = Shader.Find("Standard");
+                    }
+
+                    m_defaultMaterial = new Material(shader)
                     {
                         name = "Default Material",
                         hideFlags = HideFlags.NotEditable,
@@ -100,11 +122,7 @@ namespace OpenVDB
             }
             public void Add(string identifier, Object asset)
             {
-#if UNITY_2017_3_OR_NEWER
                 m_ctx.AddObjectToAsset(identifier, asset);
-#else
-                m_ctx.AddSubAsset(identifier, asset);
-#endif
             }
         }
 
@@ -117,7 +135,7 @@ namespace OpenVDB
         {
             var go = stream.gameObject;
             Texture texture = null;
-            
+
             if (descriptor.settings.extractTextures)
             {
                 texture = descriptor.settings.textures.First();
@@ -131,7 +149,7 @@ namespace OpenVDB
                     subassets.Add(stream.texture3D.name, stream.texture3D);
                 }
             }
-            
+
             var meshFilter = go.GetOrAddComponent<MeshFilter>();
             if (meshFilter != null)
             {
@@ -141,6 +159,13 @@ namespace OpenVDB
             }
             var renderer = go.GetOrAddComponent<MeshRenderer>();
             if (renderer == null) return;
+
+            // Add HDRP volume component if using HDRP
+            if (IsHDRP())
+            {
+                go.AddComponent<OpenVDBHDRPVolume>();
+            }
+
             if (!descriptor.settings.importMaterials) return;
             if (descriptor.settings.extractMaterials)
             {
@@ -156,9 +181,6 @@ namespace OpenVDB
             if (texture == null) return;
             renderer.sharedMaterial.SetTexture("_Volume", texture);
             renderer.sharedMaterial.name = texture.name;
-
         }
     }
 }
-
-#endif
