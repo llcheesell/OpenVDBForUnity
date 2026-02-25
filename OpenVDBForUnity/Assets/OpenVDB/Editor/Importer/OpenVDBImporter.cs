@@ -46,6 +46,11 @@ namespace OpenVDB
             return IsHDRP() ? "OpenVDB/HDRP/Standard" : "OpenVDB/Standard";
         }
 
+        static string GetRealtimeShaderName()
+        {
+            return IsHDRP() ? "OpenVDB/Realtime/HDRP" : "OpenVDB/Realtime/Standard";
+        }
+
         public override void OnImportAsset(AssetImportContext ctx)
         {
             var shortAssetPath = MakeShortAssetPath(ctx.assetPath);
@@ -72,7 +77,7 @@ namespace OpenVDB
                 if (!vdbStream.Load())
                     return;
 
-                var subassets = new Subassets(ctx);
+                var subassets = new Subassets(ctx, streamSettings.renderMode);
                 subassets.Add(streamDescriptor.name, streamDescriptor);
                 GenerateSubAssets(subassets, vdbStream, streamDescriptor);
 
@@ -85,10 +90,12 @@ namespace OpenVDB
         {
             AssetImportContext m_ctx;
             Material m_defaultMaterial;
+            VolumeRenderMode m_renderMode;
 
-            public Subassets(AssetImportContext ctx)
+            public Subassets(AssetImportContext ctx, VolumeRenderMode renderMode = VolumeRenderMode.Realtime)
             {
                 m_ctx = ctx;
+                m_renderMode = renderMode;
             }
 
             public Material defaultMaterial
@@ -97,17 +104,30 @@ namespace OpenVDB
                 {
                     if (m_defaultMaterial != null) return m_defaultMaterial;
 
-                    var shaderName = GetDefaultShaderName();
+                    // Choose shader based on render mode
+                    string shaderName;
+                    if (m_renderMode == VolumeRenderMode.Realtime)
+                    {
+                        shaderName = GetRealtimeShaderName();
+                    }
+                    else
+                    {
+                        shaderName = GetDefaultShaderName();
+                    }
+
                     var shader = Shader.Find(shaderName);
                     if (shader == null)
                     {
-                        // Fallback to built-in if HDRP shader not found
+                        // Fallback to classic shader
+                        shader = Shader.Find(GetDefaultShaderName());
+                    }
+                    if (shader == null)
+                    {
                         shader = Shader.Find("OpenVDB/Standard");
                     }
                     if (shader == null)
                     {
-                        // Last resort fallback
-                        Debug.LogWarning($"[OpenVDB] Could not find shader '{shaderName}' or 'OpenVDB/Standard'. Using Standard shader as fallback.");
+                        Debug.LogWarning($"[OpenVDB] Could not find shader '{shaderName}' or any fallback. Using Standard shader.");
                         shader = Shader.Find("Standard");
                     }
 
@@ -160,8 +180,12 @@ namespace OpenVDB
             var renderer = go.GetOrAddComponent<MeshRenderer>();
             if (renderer == null) return;
 
-            // Add HDRP volume component if using HDRP
-            if (IsHDRP())
+            // Add appropriate volume component based on render mode
+            if (descriptor.settings.renderMode == VolumeRenderMode.Realtime)
+            {
+                go.AddComponent<Realtime.OpenVDBRealtimeVolume>();
+            }
+            else if (IsHDRP())
             {
                 go.AddComponent<OpenVDBHDRPVolume>();
             }

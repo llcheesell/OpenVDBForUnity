@@ -1,0 +1,111 @@
+// BrickMapBuild.compute
+// Converts a dense volume texture into a sparse brick atlas.
+// Phase 1: Scan and count active bricks
+// Phase 2: Compact active brick data into atlas
+#pragma kernel CountActiveBricks
+#pragma kernel BuildBrickAtlas
+#pragma kernel BuildIndirectionTable
+
+// Input
+Texture3D<float> _SourceVolume;
+
+// Output
+RWTexture3D<float> _BrickAtlas;
+RWTexture3D<float4> _IndirectionTexture; // xyz = atlas coord, w = valid flag
+
+// Brick occupancy (from OccupancyGridBuild)
+Texture3D<float> _OccupancyGrid;
+
+// Active brick list (structured buffer)
+RWStructuredBuffer<uint3> _ActiveBrickList;
+RWStructuredBuffer<uint> _ActiveBrickCount;
+
+// Parameters
+uint3 _SourceSize;
+uint3 _BrickGridSize;   // Number of bricks in each dimension
+uint _BrickSize;         // Size of each brick (e.g., 8)
+uint3 _AtlasSize;        // Size of the brick atlas texture
+uint _AtlasBricksPerRow; // How many bricks fit per row in atlas
+uint _AtlasBricksPerSlice; // Bricks per XY slice in atlas
+float _DensityThreshold;
+
+// Phase 1: Count and list active bricks
+[numthreads(4, 4, 4)]
+void CountActiveBricks(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= _BrickGridSize))
+        return;
+
+    float occupancy = _OccupancyGrid[id];
+    if (occupancy > _DensityThreshold)
+    {
+        uint index;
+        InterlockedAdd(_ActiveBrickCount[0], 1, index);
+        _ActiveBrickList[index] = id;
+    }
+}
+
+// Phase 2: Copy active brick voxels into atlas
+[numthreads(4, 4, 4)]
+void BuildBrickAtlas(uint3 id : SV_DispatchThreadID)
+{
+    uint totalActive = _ActiveBrickCount[0];
+    // id.x = voxel within brick, id.y = brick index component, id.z = z within brick
+    // We dispatch with: (brickSize, brickSize, brickSize * totalActive)
+
+    uint brickLocalZ = id.z % _BrickSize;
+    uint brickIndex = id.z / _BrickSize;
+
+    if (brickIndex >= totalActive || id.x >= _BrickSize || id.y >= _BrickSize)
+        return;
+
+    uint3 brickCoord = _ActiveBrickList[brickIndex];
+    uint3 sourceCoord = brickCoord * _BrickSize + uint3(id.x, id.y, brickLocalZ);
+
+    if (any(sourceCoord >= _SourceSize))
+        return;
+
+    // Compute atlas destination
+    uint ax = brickIndex % _AtlasBricksPerRow;
+    uint ay = (brickIndex / _AtlasBricksPerRow) % _AtlasBricksPerSlice;
+    uint az = brickIndex / (_AtlasBricksPerRow * _AtlasBricksPerSlice);
+    uint3 atlasCoord = uint3(ax, ay, az) * _BrickSize + uint3(id.x, id.y, brickLocalZ);
+
+    _BrickAtlas[atlasCoord] = _SourceVolume[sourceCoord];
+}
+
+// Phase 3: Build indirection table mapping volume space to atlas space
+[numthreads(4, 4, 4)]
+void BuildIndirectionTable(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= _BrickGridSize))
+        return;
+
+    uint totalActive = _ActiveBrickCount[0];
+
+    // Search for this brick in the active list
+    // (In practice, we'd build this during CountActiveBricks, but this is clearer)
+    for (uint i = 0; i < totalActive; i++)
+    {
+        if (all(_ActiveBrickList[i] == id))
+        {
+            // Compute atlas position for this brick
+            uint ax = i % _AtlasBricksPerRow;
+            uint ay = (i / _AtlasBricksPerRow) % _AtlasBricksPerSlice;
+            uint az = i / (_AtlasBricksPerRow * _AtlasBricksPerSlice);
+
+            float3 atlasUV = (float3(ax, ay, az) + 0.5) / float3(
+                _AtlasBricksPerRow,
+                _AtlasBricksPerSlice,
+                (totalActive + _AtlasBricksPerRow * _AtlasBricksPerSlice - 1) /
+                (_AtlasBricksPerRow * _AtlasBricksPerSlice)
+            );
+
+            _IndirectionTexture[id] = float4(atlasUV, 1.0);
+            return;
+        }
+    }
+
+    // Empty brick
+    _IndirectionTexture[id] = float4(0, 0, 0, 0);
+}

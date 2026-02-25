@@ -1,0 +1,85 @@
+// OccupancyGridBuild.compute
+// Builds a coarse occupancy grid from a dense volume texture.
+// The occupancy grid marks which regions of the volume contain non-zero data,
+// enabling empty space skipping during ray marching.
+#pragma kernel BuildOccupancyGrid
+#pragma kernel BuildMipChain
+
+// Input: dense volume texture from OpenVDB
+Texture3D<float> _SourceVolume;
+SamplerState sampler_SourceVolume;
+
+// Output: occupancy grid (1 = occupied, 0 = empty)
+RWTexture3D<float> _OccupancyGrid;
+
+// Mip chain for hierarchical empty space skipping
+RWTexture3D<float> _OccupancyMipSource;
+RWTexture3D<float> _OccupancyMipDest;
+
+// Parameters
+uint3 _SourceSize;       // Size of source volume texture
+uint3 _OccupancySize;    // Size of occupancy grid
+float _DensityThreshold; // Minimum density to count as occupied
+uint3 _MipSourceSize;    // Size of mip source level
+
+[numthreads(4, 4, 4)]
+void BuildOccupancyGrid(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= _OccupancySize))
+        return;
+
+    // Each occupancy cell covers a brick of voxels
+    uint3 brickSize = _SourceSize / _OccupancySize;
+    uint3 brickStart = id * brickSize;
+    uint3 brickEnd = min(brickStart + brickSize, _SourceSize);
+
+    float maxDensity = 0.0;
+
+    // Scan the brick for any non-zero voxels
+    for (uint z = brickStart.z; z < brickEnd.z; z++)
+    {
+        for (uint y = brickStart.y; y < brickEnd.y; y++)
+        {
+            for (uint x = brickStart.x; x < brickEnd.x; x++)
+            {
+                float density = _SourceVolume[uint3(x, y, z)];
+                maxDensity = max(maxDensity, density);
+
+                // Early out if we found any data
+                if (maxDensity > _DensityThreshold)
+                {
+                    _OccupancyGrid[id] = maxDensity;
+                    return;
+                }
+            }
+        }
+    }
+
+    _OccupancyGrid[id] = maxDensity;
+}
+
+// Build mip chain by taking max of 2x2x2 block
+[numthreads(4, 4, 4)]
+void BuildMipChain(uint3 id : SV_DispatchThreadID)
+{
+    uint3 destSize = (_MipSourceSize + 1) / 2;
+    if (any(id >= destSize))
+        return;
+
+    uint3 srcBase = id * 2;
+    float maxVal = 0.0;
+
+    for (uint z = 0; z < 2; z++)
+    {
+        for (uint y = 0; y < 2; y++)
+        {
+            for (uint x = 0; x < 2; x++)
+            {
+                uint3 srcCoord = min(srcBase + uint3(x, y, z), _MipSourceSize - 1);
+                maxVal = max(maxVal, _OccupancyMipSource[srcCoord]);
+            }
+        }
+    }
+
+    _OccupancyMipDest[id] = maxVal;
+}
