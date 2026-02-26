@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEditor;
 using OpenVDB.Realtime;
+using QualityLevel = OpenVDB.Realtime.QualityLevel;
 
 namespace OpenVDB.Editor
 {
