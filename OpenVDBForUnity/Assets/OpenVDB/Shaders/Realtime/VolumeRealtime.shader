@@ -271,7 +271,7 @@ Shader "OpenVDB/Realtime/Standard"
                     _ColorRamp, sampler_ColorRamp, _ColorRampIntensity,
                     #endif
                     #ifdef ENABLE_SPOT_LIGHTS
-                    spotLightsArr, (int)_SpotLightCount, unity_ObjectToWorld,
+                    spotLightsArr, (int)_SpotLightCount,
                     #endif
                     i.vertex.xy,
                     maxRayDist

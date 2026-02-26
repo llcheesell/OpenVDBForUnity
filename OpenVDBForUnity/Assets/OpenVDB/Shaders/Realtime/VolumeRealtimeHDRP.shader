@@ -329,7 +329,7 @@ Shader "OpenVDB/Realtime/HDRP"
                     _ColorRamp, sampler_ColorRamp, _ColorRampIntensity,
                     #endif
                     #ifdef ENABLE_SPOT_LIGHTS
-                    spotLightsArr, (int)_SpotLightCount, UNITY_MATRIX_M,
+                    spotLightsArr, (int)_SpotLightCount,
                     #endif
                     input.positionCS.xy,
                     maxRayDist

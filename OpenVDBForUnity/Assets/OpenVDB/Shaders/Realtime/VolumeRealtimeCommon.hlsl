@@ -295,7 +295,6 @@ RayMarchResult RayMarchVolume(
 #ifdef ENABLE_SPOT_LIGHTS
     SpotLightData spotLights[2],
     int spotLightCount,
-    float4x4 objectToWorld,
 #endif
     float2 pixelCoord,
     float sceneDepthDist) // distance to scene geometry along ray (for depth clipping)
@@ -463,7 +462,7 @@ RayMarchResult RayMarchVolume(
 #ifdef ENABLE_SPOT_LIGHTS
             if (spotLightCount > 0)
             {
-                float3 sampleWS = mul(objectToWorld, float4(pos, 1)).xyz;
+                float3 sampleWS = mul(UNITY_MATRIX_M, float4(pos, 1)).xyz;
 
                 // Spot light 0
                 {

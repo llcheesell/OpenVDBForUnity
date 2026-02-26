@@ -468,7 +468,7 @@ namespace OpenVDB
 
                     var pos = light.transform.position;
                     var dir = light.transform.forward;
-                    var color = light.color * light.intensity;
+                    var color = light.color; // intensity is passed separately in params.w
                     var range = light.range;
 
                     float outerRad = light.spotAngle * 0.5f * Mathf.Deg2Rad;
