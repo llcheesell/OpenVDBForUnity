@@ -46,12 +46,48 @@ namespace OpenVDB
         [SerializeField, Range(0f, 1f)]
         float m_ambientDensity = 0.2f;
 
+        [Header("Light Influence")]
+        [SerializeField, Range(0f, 5f)]
+        float m_lightInfluence = 1.0f;
+
+        [SerializeField, Range(0f, 5f)]
+        float m_ambientInfluence = 1.0f;
+
+        [Header("Color Ramp")]
+        [SerializeField]
+        bool m_enableColorRamp = false;
+
+        [SerializeField]
+        Gradient m_colorRampGradient = new Gradient();
+
+        [SerializeField, Range(0f, 2f)]
+        float m_colorRampIntensity = 1.0f;
+
+        [Header("Spot Lights")]
+        [SerializeField]
+        bool m_enableSpotLights = false;
+
+        [SerializeField]
+        Light[] m_spotLights = new Light[0];
+
+        [Header("Shadow Casting")]
+        [SerializeField]
+        bool m_enableShadowCasting = false;
+
+        [SerializeField, Range(-0.1f, 0.1f)]
+        float m_shadowExtraBias = 0.0f;
+
+        [SerializeField, Range(0.001f, 0.1f)]
+        float m_shadowDensityThreshold = 0.01f;
+
         [Header("Performance")]
         [SerializeField]
         bool m_autoSyncLight = true;
 
         MeshRenderer m_renderer;
         MaterialPropertyBlock m_propertyBlock;
+        Texture2D m_bakedColorRamp;
+        bool m_gradientDirty = true;
 
         static readonly int s_intensityId = Shader.PropertyToID("_Intensity");
         static readonly int s_stepDistanceId = Shader.PropertyToID("_StepDistance");
@@ -63,11 +99,46 @@ namespace OpenVDB
         static readonly int s_mainLightDirId = Shader.PropertyToID("_MainLightDir");
         static readonly int s_mainLightColorId = Shader.PropertyToID("_MainLightColor");
         static readonly int s_volumeId = Shader.PropertyToID("_Volume");
+        static readonly int s_lightInfluenceId = Shader.PropertyToID("_LightInfluence");
+        static readonly int s_ambientInfluenceId = Shader.PropertyToID("_AmbientInfluence");
+        static readonly int s_colorRampId = Shader.PropertyToID("_ColorRamp");
+        static readonly int s_colorRampIntensityId = Shader.PropertyToID("_ColorRampIntensity");
+        static readonly int s_shadowExtraBiasId = Shader.PropertyToID("_ShadowExtraBias");
+        static readonly int s_shadowDensityThresholdId = Shader.PropertyToID("_ShadowDensityThreshold");
+
+        // Spot light shader property IDs
+        static readonly int s_spotLight0PosId = Shader.PropertyToID("_SpotLight0_Position");
+        static readonly int s_spotLight0DirId = Shader.PropertyToID("_SpotLight0_Direction");
+        static readonly int s_spotLight0ColorId = Shader.PropertyToID("_SpotLight0_Color");
+        static readonly int s_spotLight0ParamsId = Shader.PropertyToID("_SpotLight0_Params");
+        static readonly int s_spotLight1PosId = Shader.PropertyToID("_SpotLight1_Position");
+        static readonly int s_spotLight1DirId = Shader.PropertyToID("_SpotLight1_Direction");
+        static readonly int s_spotLight1ColorId = Shader.PropertyToID("_SpotLight1_Color");
+        static readonly int s_spotLight1ParamsId = Shader.PropertyToID("_SpotLight1_Params");
+        static readonly int s_spotLightCountId = Shader.PropertyToID("_SpotLightCount");
 
         void OnEnable()
         {
             m_renderer = GetComponent<MeshRenderer>();
             m_propertyBlock = new MaterialPropertyBlock();
+            m_gradientDirty = true;
+        }
+
+        void OnDisable()
+        {
+            if (m_bakedColorRamp != null)
+            {
+                if (Application.isPlaying)
+                    Destroy(m_bakedColorRamp);
+                else
+                    DestroyImmediate(m_bakedColorRamp);
+                m_bakedColorRamp = null;
+            }
+        }
+
+        void OnValidate()
+        {
+            m_gradientDirty = true;
         }
 
         void Update()
@@ -84,9 +155,37 @@ namespace OpenVDB
             m_propertyBlock.SetColor(s_ambientColorId, m_ambientColor);
             m_propertyBlock.SetFloat(s_ambientDensityId, m_ambientDensity);
 
+            // Light influence
+            m_propertyBlock.SetFloat(s_lightInfluenceId, m_lightInfluence);
+            m_propertyBlock.SetFloat(s_ambientInfluenceId, m_ambientInfluence);
+
+            // Shadow casting
+            m_propertyBlock.SetFloat(s_shadowExtraBiasId, m_shadowExtraBias);
+            m_propertyBlock.SetFloat(s_shadowDensityThresholdId, m_shadowDensityThreshold);
+            m_renderer.shadowCastingMode = m_enableShadowCasting
+                ? ShadowCastingMode.On
+                : ShadowCastingMode.Off;
+
             if (m_autoSyncLight)
             {
                 SyncMainLight();
+            }
+
+            // Color ramp
+            if (m_enableColorRamp)
+            {
+                BakeGradientTexture();
+                if (m_bakedColorRamp != null)
+                {
+                    m_propertyBlock.SetTexture(s_colorRampId, m_bakedColorRamp);
+                }
+                m_propertyBlock.SetFloat(s_colorRampIntensityId, m_colorRampIntensity);
+            }
+
+            // Spot lights
+            if (m_enableSpotLights)
+            {
+                SyncSpotLights();
             }
 
             // Sync shader keywords
@@ -95,9 +194,77 @@ namespace OpenVDB
             {
                 SetKeyword(mat, "ENABLE_DIRECTIONAL_LIGHT", m_enableDirectionalLight);
                 SetKeyword(mat, "ENABLE_AMBIENT_LIGHT", m_enableAmbientLight);
+                SetKeyword(mat, "ENABLE_COLOR_RAMP", m_enableColorRamp);
+                SetKeyword(mat, "ENABLE_SPOT_LIGHTS", m_enableSpotLights);
             }
 
             m_renderer.SetPropertyBlock(m_propertyBlock);
+        }
+
+        void BakeGradientTexture()
+        {
+            if (!m_gradientDirty && m_bakedColorRamp != null) return;
+
+            if (m_bakedColorRamp == null)
+            {
+                m_bakedColorRamp = new Texture2D(256, 1, TextureFormat.RGBA32, false)
+                {
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Bilinear
+                };
+            }
+
+            var pixels = new Color[256];
+            for (int i = 0; i < 256; i++)
+            {
+                pixels[i] = m_colorRampGradient.Evaluate(i / 255f);
+            }
+            m_bakedColorRamp.SetPixels(pixels);
+            m_bakedColorRamp.Apply();
+            m_gradientDirty = false;
+        }
+
+        void SyncSpotLights()
+        {
+            int count = 0;
+            if (m_spotLights != null)
+            {
+                for (int i = 0; i < Mathf.Min(m_spotLights.Length, 2); i++)
+                {
+                    var light = m_spotLights[i];
+                    if (light == null || light.type != LightType.Spot || !light.enabled) continue;
+
+                    var pos = light.transform.position;
+                    var dir = light.transform.forward;
+                    var color = light.color * light.intensity;
+                    var range = light.range;
+
+                    // Compute angleScale and angleOffset from spotAngle
+                    float outerRad = light.spotAngle * 0.5f * Mathf.Deg2Rad;
+                    float innerRad = light.innerSpotAngle * 0.5f * Mathf.Deg2Rad;
+                    float cosOuter = Mathf.Cos(outerRad);
+                    float cosInner = Mathf.Cos(innerRad);
+                    float angleScale = 1.0f / Mathf.Max(cosInner - cosOuter, 0.001f);
+                    float angleOffset = -cosOuter * angleScale;
+
+                    if (count == 0)
+                    {
+                        m_propertyBlock.SetVector(s_spotLight0PosId, pos);
+                        m_propertyBlock.SetVector(s_spotLight0DirId, dir);
+                        m_propertyBlock.SetVector(s_spotLight0ColorId, new Vector4(color.r, color.g, color.b, 1));
+                        m_propertyBlock.SetVector(s_spotLight0ParamsId, new Vector4(range, angleScale, angleOffset, light.intensity));
+                    }
+                    else if (count == 1)
+                    {
+                        m_propertyBlock.SetVector(s_spotLight1PosId, pos);
+                        m_propertyBlock.SetVector(s_spotLight1DirId, dir);
+                        m_propertyBlock.SetVector(s_spotLight1ColorId, new Vector4(color.r, color.g, color.b, 1));
+                        m_propertyBlock.SetVector(s_spotLight1ParamsId, new Vector4(range, angleScale, angleOffset, light.intensity));
+                    }
+                    count++;
+                }
+            }
+            m_propertyBlock.SetFloat(s_spotLightCountId, count);
         }
 
         void SyncMainLight()

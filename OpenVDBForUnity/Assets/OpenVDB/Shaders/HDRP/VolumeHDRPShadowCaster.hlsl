@@ -16,6 +16,7 @@ SAMPLER(sampler_Volume);
 
 float _StepDistance;
 float _ShadowExtraBias;
+float _ShadowDensityThreshold;
 
 float SampleVolumeShadow(float3 uv)
 {
@@ -82,7 +83,7 @@ void FragShadow(Varyings input, out float4 outColor : SV_Target, out float outDe
         float3 uv = GetUV(p);
         float cursample = SampleVolumeShadow(uv);
 
-        if (cursample > 0.01)
+        if (cursample > _ShadowDensityThreshold)
         {
             depth = p;
             break;

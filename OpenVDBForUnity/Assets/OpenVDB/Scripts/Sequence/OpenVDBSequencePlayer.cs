@@ -67,6 +67,16 @@ namespace OpenVDB
         [SerializeField, Tooltip("Scale factor for all frames")]
         float m_scaleFactor = 0.01f;
 
+        [Header("Density Normalization")]
+        [SerializeField, Tooltip("Use fixed density range across all frames for consistent brightness")]
+        bool m_useFixedDensityRange = false;
+
+        [SerializeField, Tooltip("Minimum density value (set via Auto-Detect or manually)")]
+        float m_fixedMinDensity = 0.0f;
+
+        [SerializeField, Tooltip("Maximum density value (set via Auto-Detect or manually)")]
+        float m_fixedMaxDensity = 1.0f;
+
         // Runtime state
         string[] m_resolvedPaths;
         Dictionary<int, CachedFrame> m_frameCache = new Dictionary<int, CachedFrame>();
@@ -345,6 +355,11 @@ namespace OpenVDB
             config.SetDefaults();
             config.scaleFactor = m_scaleFactor;
             config.textureMaxSize = m_textureMaxSize > 0 ? m_textureMaxSize : 256;
+            if (m_useFixedDensityRange)
+            {
+                config.fixedMinValue = m_fixedMinDensity;
+                config.fixedMaxValue = m_fixedMaxDensity;
+            }
             context.SetConfig(ref config);
 
             if (!context.Load(fullPath))
@@ -429,6 +444,105 @@ namespace OpenVDB
                 }
             }
         }
+
+        // Density normalization public API
+        public bool useFixedDensityRange
+        {
+            get => m_useFixedDensityRange;
+            set => m_useFixedDensityRange = value;
+        }
+
+        public float fixedMinDensity
+        {
+            get => m_fixedMinDensity;
+            set => m_fixedMinDensity = value;
+        }
+
+        public float fixedMaxDensity
+        {
+            get => m_fixedMaxDensity;
+            set => m_fixedMaxDensity = value;
+        }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Scans all frames to detect the global min/max density range.
+        /// Call from Editor only (uses EditorUtility.DisplayProgressBar).
+        /// </summary>
+        public void ScanGlobalDensityRange()
+        {
+            if (!m_initialized) Initialize();
+            if (m_resolvedPaths == null || m_resolvedPaths.Length == 0)
+            {
+                Debug.LogWarning("OpenVDBSequencePlayer: No files to scan.");
+                return;
+            }
+
+            float globalMin = float.MaxValue;
+            float globalMax = float.MinValue;
+
+            for (int i = 0; i < m_resolvedPaths.Length; i++)
+            {
+                var path = m_resolvedPaths[i];
+                if (string.IsNullOrEmpty(path)) continue;
+
+                string fullPath;
+                if (m_fileSource == FileSource.Directory)
+                    fullPath = path;
+                else
+                    fullPath = Path.Combine(Application.streamingAssetsPath, path);
+
+                if (!File.Exists(fullPath)) continue;
+
+                EditorUtility.DisplayProgressBar("Scanning Density Range",
+                    $"Frame {i + 1} / {m_resolvedPaths.Length}: {Path.GetFileName(fullPath)}",
+                    (float)i / m_resolvedPaths.Length);
+
+                int contextId = GetInstanceID() * 10000 + 9000 + i;
+                var context = oiContext.Create(contextId);
+
+                var config = new oiConfig();
+                config.SetDefaults();
+                config.scaleFactor = m_scaleFactor;
+                config.textureMaxSize = m_textureMaxSize > 0 ? m_textureMaxSize : 256;
+                // Do NOT set fixed range — we want raw min/max
+                context.SetConfig(ref config);
+
+                if (!context.Load(fullPath))
+                {
+                    context.Destroy();
+                    continue;
+                }
+
+                var volume = context.volume;
+                var summary = new oiVolumeSummary();
+                volume.GetSummary(ref summary);
+
+                // Need to fill data to get actual min/max
+                var texture = new Texture3D(summary.width, summary.height, summary.depth,
+                    (TextureFormat)summary.format, false);
+                var pixels = new PinnedList<Color>(texture.GetPixels());
+                var volumeData = default(oiVolumeData);
+                volumeData.voxels = pixels;
+                volume.FillData(ref volumeData);
+                volume.GetSummary(ref summary);
+
+                if (summary.minValue < globalMin) globalMin = summary.minValue;
+                if (summary.maxValue > globalMax) globalMax = summary.maxValue;
+
+                UnityEngine.Object.DestroyImmediate(texture);
+                context.Destroy();
+            }
+
+            EditorUtility.ClearProgressBar();
+
+            m_fixedMinDensity = globalMin;
+            m_fixedMaxDensity = globalMax;
+            m_useFixedDensityRange = true;
+
+            Debug.Log($"OpenVDBSequencePlayer: Detected density range [{globalMin:F6}, {globalMax:F6}] across {m_resolvedPaths.Length} frames.");
+        }
+#endif
 
         public void Dispose()
         {

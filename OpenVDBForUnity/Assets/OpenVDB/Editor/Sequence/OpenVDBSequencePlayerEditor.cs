@@ -17,6 +17,9 @@ namespace OpenVDB.Editor
         SerializedProperty m_preloadCount;
         SerializedProperty m_textureMaxSize;
         SerializedProperty m_scaleFactor;
+        SerializedProperty m_useFixedDensityRange;
+        SerializedProperty m_fixedMinDensity;
+        SerializedProperty m_fixedMaxDensity;
 
         void OnEnable()
         {
@@ -31,6 +34,9 @@ namespace OpenVDB.Editor
             m_preloadCount = serializedObject.FindProperty("m_preloadCount");
             m_textureMaxSize = serializedObject.FindProperty("m_textureMaxSize");
             m_scaleFactor = serializedObject.FindProperty("m_scaleFactor");
+            m_useFixedDensityRange = serializedObject.FindProperty("m_useFixedDensityRange");
+            m_fixedMinDensity = serializedObject.FindProperty("m_fixedMinDensity");
+            m_fixedMaxDensity = serializedObject.FindProperty("m_fixedMaxDensity");
         }
 
         public override void OnInspectorGUI()
@@ -83,6 +89,31 @@ namespace OpenVDB.Editor
                 $"Estimated max cache memory: ~{cacheMemoryMB:F0} MB\n" +
                 $"({m_cacheSize.intValue} frames x {m_textureMaxSize.intValue}^3 x 16 bytes)",
                 MessageType.Info);
+
+            EditorGUILayout.Space();
+
+            // Density Normalization
+            EditorGUILayout.LabelField("Density Normalization", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(m_useFixedDensityRange, new GUIContent("Use Fixed Range"));
+            if (m_useFixedDensityRange.boolValue)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(m_fixedMinDensity, new GUIContent("Min Density"));
+                EditorGUILayout.PropertyField(m_fixedMaxDensity, new GUIContent("Max Density"));
+                EditorGUI.indentLevel--;
+
+                if (player != null && GUILayout.Button("Auto-Detect Range (Scan All Frames)"))
+                {
+                    serializedObject.ApplyModifiedProperties();
+                    player.ScanGlobalDensityRange();
+                    serializedObject.Update();
+                }
+
+                EditorGUILayout.HelpBox(
+                    "Fixed range ensures consistent brightness across all frames.\n" +
+                    "Use 'Auto-Detect' to scan all frames and find the global min/max.",
+                    MessageType.Info);
+            }
 
             EditorGUILayout.Space();
 
