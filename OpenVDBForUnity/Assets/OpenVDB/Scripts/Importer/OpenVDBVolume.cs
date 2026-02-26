@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace OpenVDB
 {
-    public class OpenVDBVolume: IDisposable
+    public class OpenVDBVolumeData: IDisposable
     {
         Texture3D m_texture3D;
         Mesh m_mesh;
@@ -20,7 +20,7 @@ namespace OpenVDB
             get { return new Vector3(m_summary.xscale, m_summary.yscale, m_summary.zscale); }
         }
 
-        public OpenVDBVolume(oiVolume volume)
+        public OpenVDBVolumeData(oiVolume volume)
         {
             m_volume = volume;
             m_volume.GetSummary(ref m_summary);

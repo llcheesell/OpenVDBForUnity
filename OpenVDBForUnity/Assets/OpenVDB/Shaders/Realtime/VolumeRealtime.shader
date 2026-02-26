@@ -96,6 +96,7 @@ Shader "OpenVDB/Realtime/Standard"
             #define ENABLE_SAMPLING_START_OFFSET
 
             #include "UnityCG.cginc"
+            #include "UnityLightingCommon.cginc"
             #include "VolumeRealtimeCommon.hlsl"
 
             // Volume textures
@@ -232,7 +233,7 @@ Shader "OpenVDB/Realtime/Standard"
                 params.ambientColor = _AmbientColor;
                 params.ambientDensity = _AmbientDensity;
                 params.lightDir = lightDir * shadowStepSize;
-                params.lightColor = float3(1, 1, 1); // Unity forward base light color
+                params.lightColor = _LightColor0.rgb; // Unity forward base light color
                 params.phaseG = _PhaseG;
                 params.adaptiveDistanceScale = _AdaptiveDistScale;
                 params.minStepDistance = _MinStepDistance;
