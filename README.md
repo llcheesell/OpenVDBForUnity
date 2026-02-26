@@ -6,8 +6,8 @@ Unity plugin for importing and rendering [OpenVDB](http://www.openvdb.org/) volu
 
 ## Requirements
 
-- Unity 2022.3 LTS or later
-- **HDRP 14.x** (High Definition Render Pipeline) or Built-in Render Pipeline
+- Unity 6 (6000.x) or later
+- **HDRP 17.x** (High Definition Render Pipeline) or Built-in Render Pipeline
 
 ## Supported Platforms
 
@@ -21,7 +21,7 @@ Unity plugin for importing and rendering [OpenVDB](http://www.openvdb.org/) volu
 
 ### 1. Open the project
 
-Open the `OpenVDBForUnity/` folder in Unity 2022.3 or later. Prebuilt native plugins for Windows and Linux are included in the repository.
+Open the `OpenVDBForUnity/` folder in Unity 6 or later. Prebuilt native plugins for Windows and Linux are included in the repository.
 
 ### 2. Import a VDB file
 
@@ -87,7 +87,7 @@ All features are keyword-gated via `shader_feature_local` for zero GPU cost when
 
 ### Built-in Render Pipeline
 
-- **Realtime**: `OpenVDB/Realtime/Standard` -- Full feature set (no ShadowCaster)
+- **Realtime**: `OpenVDB/Realtime/Standard` -- Full feature set with `_LightColor0` integration (no ShadowCaster)
 - **Classic**: `OpenVDB/Standard` -- Basic volume rendering
 
 ## Timeline / Sequence Playback
@@ -198,6 +198,20 @@ The previous `OpenVDBHDRPVolume` and `OpenVDBRealtimeVolume` components are now 
 2. Add `OpenVDBVolume` component
 3. Select the desired **Render Mode** (Classic or Realtime)
 4. Reassign your Volume Texture and configure parameters
+
+## Changelog
+
+### dev/feature-update (latest)
+
+- **Unified Architecture** -- Merged Classic and Realtime renderers into a single `OpenVDBVolume` component with shared feature set and per-mode Inspector UI
+- **Cross-Pipeline Spot Lights** -- Up to 2 spot lights with smooth inverse-square distance falloff and cone attenuation, working on both HDRP and Built-in RP
+- **Standard RP Light Color** -- Realtime shader now reads `_LightColor0` from Unity's forward rendering pipeline instead of hardcoded white
+- **HDRP Compatibility** -- Uses `UNITY_MATRIX_M` for object-to-world transforms, compatible with both HDRP and Built-in RP shader compilation
+- **Keyword-Gated Features** -- All shared features use `shader_feature_local` for zero GPU cost when disabled
+- **Shadow Casting** -- Volumes can cast shadows into the HDRP shadow map via a dedicated ShadowCaster pass
+- **Color Ramp** -- Gradient-based density-to-color mapping baked to a 256x1 lookup texture
+- **Quality Presets** -- Low / Medium / High / Ultra presets with one-click configuration
+- **Empty Space Skipping** -- Compute-shader-generated occupancy grid with DDA traversal for fast sparse volume rendering
 
 ## License
 
