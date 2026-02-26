@@ -1,0 +1,104 @@
+using UnityEngine;
+
+namespace OpenVDB.Realtime
+{
+    /// <summary>
+    /// Generates an occupancy grid from a dense volume Texture3D using a compute shader.
+    /// The occupancy grid marks which regions of the volume contain data,
+    /// enabling empty space skipping during ray marching.
+    /// </summary>
+    public class OccupancyGridGenerator
+    {
+        ComputeShader m_computeShader;
+        int m_buildKernel;
+        int m_mipKernel;
+
+        static readonly int s_sourceVolumeId = Shader.PropertyToID("_SourceVolume");
+        static readonly int s_occupancyGridId = Shader.PropertyToID("_OccupancyGrid");
+        static readonly int s_sourceSizeId = Shader.PropertyToID("_SourceSize");
+        static readonly int s_occupancySizeId = Shader.PropertyToID("_OccupancySize");
+        static readonly int s_densityThresholdId = Shader.PropertyToID("_DensityThreshold");
+        static readonly int s_mipSourceId = Shader.PropertyToID("_OccupancyMipSource");
+        static readonly int s_mipDestId = Shader.PropertyToID("_OccupancyMipDest");
+        static readonly int s_mipSourceSizeId = Shader.PropertyToID("_MipSourceSize");
+
+        public OccupancyGridGenerator(ComputeShader computeShader)
+        {
+            m_computeShader = computeShader;
+            m_buildKernel = m_computeShader.FindKernel("BuildOccupancyGrid");
+            m_mipKernel = m_computeShader.FindKernel("BuildMipChain");
+        }
+
+        /// <summary>
+        /// Builds an occupancy grid from the given volume texture.
+        /// </summary>
+        /// <param name="sourceVolume">Dense 3D volume texture</param>
+        /// <param name="divisor">How many times smaller the occupancy grid is (e.g., 8 means each cell covers 8x8x8 voxels)</param>
+        /// <param name="densityThreshold">Minimum density to mark a cell as occupied</param>
+        /// <returns>Occupancy grid as a RenderTexture (3D, RFloat)</returns>
+        public RenderTexture Generate(Texture3D sourceVolume, int divisor = 8, float densityThreshold = 0.001f)
+        {
+            int srcW = sourceVolume.width;
+            int srcH = sourceVolume.height;
+            int srcD = sourceVolume.depth;
+
+            int occW = Mathf.Max(1, srcW / divisor);
+            int occH = Mathf.Max(1, srcH / divisor);
+            int occD = Mathf.Max(1, srcD / divisor);
+
+            var occupancyGrid = CreateVolumeRT(occW, occH, occD, RenderTextureFormat.RFloat);
+
+            m_computeShader.SetTexture(m_buildKernel, s_sourceVolumeId, sourceVolume);
+            m_computeShader.SetTexture(m_buildKernel, s_occupancyGridId, occupancyGrid);
+            m_computeShader.SetInts(s_sourceSizeId, srcW, srcH, srcD);
+            m_computeShader.SetInts(s_occupancySizeId, occW, occH, occD);
+            m_computeShader.SetFloat(s_densityThresholdId, densityThreshold);
+
+            int groupsX = Mathf.CeilToInt(occW / 4f);
+            int groupsY = Mathf.CeilToInt(occH / 4f);
+            int groupsZ = Mathf.CeilToInt(occD / 4f);
+
+            m_computeShader.Dispatch(m_buildKernel, groupsX, groupsY, groupsZ);
+
+            return occupancyGrid;
+        }
+
+        /// <summary>
+        /// Builds an occupancy grid from a RenderTexture source (for runtime updates).
+        /// </summary>
+        public RenderTexture Generate(RenderTexture sourceVolume, int srcW, int srcH, int srcD, int divisor = 8, float densityThreshold = 0.001f)
+        {
+            int occW = Mathf.Max(1, srcW / divisor);
+            int occH = Mathf.Max(1, srcH / divisor);
+            int occD = Mathf.Max(1, srcD / divisor);
+
+            var occupancyGrid = CreateVolumeRT(occW, occH, occD, RenderTextureFormat.RFloat);
+
+            m_computeShader.SetTexture(m_buildKernel, s_sourceVolumeId, sourceVolume);
+            m_computeShader.SetTexture(m_buildKernel, s_occupancyGridId, occupancyGrid);
+            m_computeShader.SetInts(s_sourceSizeId, srcW, srcH, srcD);
+            m_computeShader.SetInts(s_occupancySizeId, occW, occH, occD);
+            m_computeShader.SetFloat(s_densityThresholdId, densityThreshold);
+
+            int groupsX = Mathf.CeilToInt(occW / 4f);
+            int groupsY = Mathf.CeilToInt(occH / 4f);
+            int groupsZ = Mathf.CeilToInt(occD / 4f);
+
+            m_computeShader.Dispatch(m_buildKernel, groupsX, groupsY, groupsZ);
+
+            return occupancyGrid;
+        }
+
+        static RenderTexture CreateVolumeRT(int width, int height, int depth, RenderTextureFormat format)
+        {
+            var rt = new RenderTexture(width, height, 0, format);
+            rt.dimension = UnityEngine.Rendering.TextureDimension.Tex3D;
+            rt.volumeDepth = depth;
+            rt.enableRandomWrite = true;
+            rt.filterMode = FilterMode.Point;
+            rt.wrapMode = TextureWrapMode.Clamp;
+            rt.Create();
+            return rt;
+        }
+    }
+}
