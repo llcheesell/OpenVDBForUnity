@@ -4,10 +4,10 @@ namespace OpenVDB.Realtime
 {
     /// <summary>
     /// Dynamically adjusts volume rendering quality based on camera distance
-    /// and frame budget. This component modifies the OpenVDBRealtimeVolume
+    /// and frame budget. This component modifies the OpenVDBVolume
     /// parameters at runtime for optimal performance.
     /// </summary>
-    [RequireComponent(typeof(OpenVDBRealtimeVolume))]
+    [RequireComponent(typeof(OpenVDBVolume))]
     public class VolumeLODController : MonoBehaviour
     {
         [Header("Distance-based LOD")]
@@ -51,14 +51,14 @@ namespace OpenVDB.Realtime
         float m_qualityAdjustSpeed = 1f;
 
         // Runtime
-        OpenVDBRealtimeVolume m_volume;
+        OpenVDBVolume m_volume;
         Camera m_mainCamera;
         float m_currentQualityScale = 1f;
         float m_smoothedFrameTime;
 
         void OnEnable()
         {
-            m_volume = GetComponent<OpenVDBRealtimeVolume>();
+            m_volume = GetComponent<OpenVDBVolume>();
         }
 
         void Update()

@@ -12,6 +12,8 @@
 //   ENABLE_ADAPTIVE_STEPPING  - Distance-based adaptive step size
 //   ENABLE_HG_PHASE           - Use Henyey-Greenstein phase function
 //   ENABLE_MULTI_SCATTER      - Approximate multi-scattering
+//   ENABLE_COLOR_RAMP         - Density-to-color gradient mapping
+//   ENABLE_SPOT_LIGHTS        - Up to 2 spot light contributions
 //   MAX_STEPS                 - Maximum ray march steps (default 200)
 //   SHADOW_STEPS              - Maximum shadow ray steps (default 6)
 // ============================================================================
@@ -66,7 +68,46 @@ struct VolumeParams
     float adaptiveDistanceScale; // How much to scale steps with distance
     float minStepDistance;  // Minimum step size
     float maxStepDistance;  // Maximum step size
+    float lightInfluence;   // Multiplier for directional light contribution
+    float ambientInfluence; // Multiplier for ambient light contribution
 };
+
+// ============================================================================
+// Spot Light Data
+// ============================================================================
+
+#ifdef ENABLE_SPOT_LIGHTS
+struct SpotLightData
+{
+    float3 position;   // World space position
+    float3 direction;  // World space direction (forward)
+    float3 color;      // Light color * intensity
+    float4 params;     // (range, angleScale, angleOffset, intensity)
+};
+
+float ComputeSpotAttenuation(float3 worldPos, SpotLightData light)
+{
+    float range = light.params.x;
+    float angleScale = light.params.y;
+    float angleOffset = light.params.z;
+
+    float3 toLight = light.position - worldPos;
+    float dist = length(toLight);
+    float3 L = toLight / max(dist, 0.0001);
+
+    // Distance attenuation (smooth inverse square)
+    float distNorm = dist / max(range, 0.0001);
+    float distAtten = saturate(1.0 - distNorm * distNorm);
+    distAtten *= distAtten;
+
+    // Cone attenuation
+    float cosAngle = dot(light.direction, -L);
+    float coneAtten = saturate(cosAngle * angleScale + angleOffset);
+    coneAtten *= coneAtten;
+
+    return distAtten * coneAtten;
+}
+#endif
 
 // ============================================================================
 // Noise functions for jittered sampling
@@ -246,6 +287,16 @@ RayMarchResult RayMarchVolume(
     Texture3D<float> occupancyGrid,
     uint3 occupancySize,
 #endif
+#ifdef ENABLE_COLOR_RAMP
+    Texture2D colorRampTex,
+    SamplerState colorRampSampler,
+    float colorRampIntensity,
+#endif
+#ifdef ENABLE_SPOT_LIGHTS
+    SpotLightData spotLights[2],
+    int spotLightCount,
+    float4x4 objectToWorld,
+#endif
     float2 pixelCoord,
     float sceneDepthDist) // distance to scene geometry along ray (for depth clipping)
 {
@@ -336,7 +387,18 @@ RayMarchResult RayMarchVolume(
                 result.hasHit = true;
             }
 
-            float curDensity = saturate(density * params.intensity);
+            // Color ramp lookup
+            float3 rampColor = float3(1, 1, 1);
+            float rampAlpha = 1.0;
+#ifdef ENABLE_COLOR_RAMP
+            {
+                float4 rampSample = colorRampTex.SampleLevel(colorRampSampler, float2(density, 0.5), 0);
+                rampColor = rampSample.rgb * colorRampIntensity;
+                rampAlpha = rampSample.a;
+            }
+#endif
+
+            float curDensity = saturate(density * params.intensity * rampAlpha);
 
             // Shadow ray march
             float shadowDist = 0.0;
@@ -380,7 +442,7 @@ RayMarchResult RayMarchVolume(
             powder = PowderEffect(density);
 #endif
 
-            float3 directLight = shadowTerm * curDensity * phase * powder * params.lightColor;
+            float3 directLight = shadowTerm * curDensity * phase * powder * params.lightColor * params.lightInfluence * rampColor;
             lightenergy += directLight * transmittance;
 
             // Ambient lighting
@@ -393,7 +455,36 @@ RayMarchResult RayMarchVolume(
                 ambientShadow += volumeTex.SampleLevel(volumeSampler, saturate(luv1), 0).r;
                 ambientShadow += volumeTex.SampleLevel(volumeSampler, saturate(luv2), 0).r;
                 ambientShadow += volumeTex.SampleLevel(volumeSampler, saturate(luv3), 0).r;
-                lightenergy += exp(-ambientShadow * params.ambientDensity) * curDensity * params.ambientColor * transmittance;
+                lightenergy += exp(-ambientShadow * params.ambientDensity) * curDensity * params.ambientColor * params.ambientInfluence * rampColor * transmittance;
+            }
+#endif
+
+            // Spot lights
+#ifdef ENABLE_SPOT_LIGHTS
+            if (spotLightCount > 0)
+            {
+                float3 sampleWS = mul(objectToWorld, float4(pos, 1)).xyz;
+
+                // Spot light 0
+                {
+                    float atten = ComputeSpotAttenuation(sampleWS, spotLights[0]);
+                    if (atten > 0.001)
+                    {
+                        float3 spotContrib = curDensity * spotLights[0].color * spotLights[0].params.w * atten * params.lightInfluence * rampColor;
+                        lightenergy += spotContrib * transmittance;
+                    }
+                }
+
+                // Spot light 1
+                if (spotLightCount > 1)
+                {
+                    float atten = ComputeSpotAttenuation(sampleWS, spotLights[1]);
+                    if (atten > 0.001)
+                    {
+                        float3 spotContrib = curDensity * spotLights[1].color * spotLights[1].params.w * atten * params.lightInfluence * rampColor;
+                        lightenergy += spotContrib * transmittance;
+                    }
+                }
             }
 #endif
 

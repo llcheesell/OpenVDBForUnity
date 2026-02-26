@@ -180,14 +180,17 @@ namespace OpenVDB
             var renderer = go.GetOrAddComponent<MeshRenderer>();
             if (renderer == null) return;
 
-            // Add appropriate volume component based on render mode
+            // Add unified volume component and set render mode
+            var vol = go.AddComponent<OpenVDBVolume>();
+            // renderMode is set via serialized field, apply shader to match
             if (descriptor.settings.renderMode == VolumeRenderMode.Realtime)
             {
-                go.AddComponent<Realtime.OpenVDBRealtimeVolume>();
+                // Default is Realtime, ApplyShader will be called on enable
             }
-            else if (IsHDRP())
+            else
             {
-                go.AddComponent<OpenVDBHDRPVolume>();
+                // Set to Classic mode
+                vol.renderMode = VolumeRenderMode.Classic;
             }
 
             if (!descriptor.settings.importMaterials) return;

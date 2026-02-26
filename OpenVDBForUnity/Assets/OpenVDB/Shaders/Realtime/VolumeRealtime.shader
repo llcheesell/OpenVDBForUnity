@@ -20,10 +20,31 @@ Shader "OpenVDB/Realtime/Standard"
         _AmbientColor ("Ambient Color", Color) = (0.4, 0.4, 0.5, 1)
         _AmbientDensity ("Ambient Density", Range(0, 1)) = 0.2
 
+        [Header(Light Influence)]
+        _LightInfluence ("Light Influence", Range(0, 5)) = 1.0
+        _AmbientInfluence ("Ambient Influence", Range(0, 5)) = 1.0
+
         [Header(Adaptive Stepping)]
         _AdaptiveDistScale ("Adaptive Distance Scale", Range(0, 2)) = 0.5
         _MinStepDistance ("Min Step Distance", Range(0.001, 0.01)) = 0.003
         _MaxStepDistance ("Max Step Distance", Range(0.01, 0.1)) = 0.05
+
+        [Header(Color Ramp)]
+        [Toggle(ENABLE_COLOR_RAMP)] _EnableColorRamp("Enable Color Ramp", Float) = 0
+        _ColorRamp ("Color Ramp", 2D) = "white" {}
+        _ColorRampIntensity ("Color Ramp Intensity", Range(0, 2)) = 1.0
+
+        [Header(Spot Lights)]
+        [Toggle(ENABLE_SPOT_LIGHTS)] _EnableSpotLights("Enable Spot Lights", Float) = 0
+        _SpotLight0_Position ("Spot Light 0 Position", Vector) = (0, 0, 0, 0)
+        _SpotLight0_Direction ("Spot Light 0 Direction", Vector) = (0, -1, 0, 0)
+        _SpotLight0_Color ("Spot Light 0 Color", Color) = (1, 1, 1, 1)
+        _SpotLight0_Params ("Spot Light 0 Params", Vector) = (10, 1, 0, 1)
+        _SpotLight1_Position ("Spot Light 1 Position", Vector) = (0, 0, 0, 0)
+        _SpotLight1_Direction ("Spot Light 1 Direction", Vector) = (0, -1, 0, 0)
+        _SpotLight1_Color ("Spot Light 1 Color", Color) = (1, 1, 1, 1)
+        _SpotLight1_Params ("Spot Light 1 Params", Vector) = (10, 1, 0, 1)
+        _SpotLightCount ("Spot Light Count", Float) = 0
 
         [Header(Features)]
         [Toggle(ENABLE_OCCUPANCY_SKIP)] _EnableOccupancySkip("Empty Space Skipping", Float) = 1
@@ -68,6 +89,8 @@ Shader "OpenVDB/Realtime/Standard"
             #pragma shader_feature_local ENABLE_MULTI_SCATTER
             #pragma shader_feature_local ENABLE_DIRECTIONAL_LIGHT
             #pragma shader_feature_local ENABLE_AMBIENT_LIGHT
+            #pragma shader_feature_local ENABLE_COLOR_RAMP
+            #pragma shader_feature_local ENABLE_SPOT_LIGHTS
 
             #define ENABLE_CAMERA_INSIDE_CUBE
             #define ENABLE_SAMPLING_START_OFFSET
@@ -82,6 +105,26 @@ Shader "OpenVDB/Realtime/Standard"
             #ifdef ENABLE_OCCUPANCY_SKIP
             Texture3D<float> _OccupancyGrid;
             uint3 _OccupancyGridSize;
+            #endif
+
+            // Color ramp
+            #ifdef ENABLE_COLOR_RAMP
+            Texture2D _ColorRamp;
+            SamplerState sampler_ColorRamp;
+            float _ColorRampIntensity;
+            #endif
+
+            // Spot lights
+            #ifdef ENABLE_SPOT_LIGHTS
+            float3 _SpotLight0_Position;
+            float3 _SpotLight0_Direction;
+            float3 _SpotLight0_Color;
+            float4 _SpotLight0_Params;
+            float3 _SpotLight1_Position;
+            float3 _SpotLight1_Direction;
+            float3 _SpotLight1_Color;
+            float4 _SpotLight1_Params;
+            float _SpotLightCount;
             #endif
 
             sampler2D _CameraDepthTexture;
@@ -99,6 +142,8 @@ Shader "OpenVDB/Realtime/Standard"
             float _AdaptiveDistScale;
             float _MinStepDistance;
             float _MaxStepDistance;
+            float _LightInfluence;
+            float _AmbientInfluence;
 
             // Temporal
             float _FrameIndex;
@@ -192,11 +237,26 @@ Shader "OpenVDB/Realtime/Standard"
                 params.adaptiveDistanceScale = _AdaptiveDistScale;
                 params.minStepDistance = _MinStepDistance;
                 params.maxStepDistance = _MaxStepDistance;
+                params.lightInfluence = _LightInfluence;
+                params.ambientInfluence = _AmbientInfluence;
 
                 #ifdef ENABLE_TEMPORAL_JITTER
                 params.temporalOffset = TemporalNoise(i.vertex.xy, _FrameIndex);
                 #else
                 params.temporalOffset = 0.0;
+                #endif
+
+                // Build spot light data
+                #ifdef ENABLE_SPOT_LIGHTS
+                SpotLightData spotLightsArr[2];
+                spotLightsArr[0].position = _SpotLight0_Position;
+                spotLightsArr[0].direction = _SpotLight0_Direction;
+                spotLightsArr[0].color = _SpotLight0_Color;
+                spotLightsArr[0].params = _SpotLight0_Params;
+                spotLightsArr[1].position = _SpotLight1_Position;
+                spotLightsArr[1].direction = _SpotLight1_Direction;
+                spotLightsArr[1].color = _SpotLight1_Color;
+                spotLightsArr[1].params = _SpotLight1_Params;
                 #endif
 
                 // Ray march
@@ -205,6 +265,12 @@ Shader "OpenVDB/Realtime/Standard"
                     _Volume, sampler_Volume,
                     #ifdef ENABLE_OCCUPANCY_SKIP
                     _OccupancyGrid, _OccupancyGridSize,
+                    #endif
+                    #ifdef ENABLE_COLOR_RAMP
+                    _ColorRamp, sampler_ColorRamp, _ColorRampIntensity,
+                    #endif
+                    #ifdef ENABLE_SPOT_LIGHTS
+                    spotLightsArr, (int)_SpotLightCount, unity_ObjectToWorld,
                     #endif
                     i.vertex.xy,
                     maxRayDist

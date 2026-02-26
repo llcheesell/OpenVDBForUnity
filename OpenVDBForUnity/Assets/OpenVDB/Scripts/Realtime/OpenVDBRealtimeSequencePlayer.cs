@@ -7,7 +7,7 @@ namespace OpenVDB.Realtime
     /// Manages loading, caching, and transitioning between frames
     /// with occupancy grid updates.
     /// </summary>
-    [RequireComponent(typeof(OpenVDBRealtimeVolume))]
+    [RequireComponent(typeof(OpenVDBVolume))]
     public class OpenVDBRealtimeSequencePlayer : MonoBehaviour
     {
         [Header("Sequence")]
@@ -28,14 +28,14 @@ namespace OpenVDB.Realtime
         int m_preloadFrameCount = 4;
 
         // Runtime state
-        OpenVDBRealtimeVolume m_volume;
+        OpenVDBVolume m_volume;
         float m_time;
         int m_currentFrame = -1;
         bool m_isPlaying;
 
         void Awake()
         {
-            m_volume = GetComponent<OpenVDBRealtimeVolume>();
+            m_volume = GetComponent<OpenVDBVolume>();
         }
 
         void Start()

@@ -8,6 +8,7 @@ namespace OpenVDB
     /// Manages an OpenVDB volume for HDRP rendering using the custom ray marching shader.
     /// Automatically syncs the main directional light direction and color to the material.
     /// </summary>
+    [Obsolete("Use OpenVDBVolume instead. This component will be removed in a future version.")]
     [ExecuteAlways]
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]

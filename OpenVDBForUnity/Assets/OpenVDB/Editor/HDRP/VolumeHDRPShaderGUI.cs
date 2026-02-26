@@ -113,7 +113,7 @@ namespace OpenVDB.Editor
                 {
                     materialEditor.ShaderProperty(FindProperty("_ColorRampIntensity", properties), "Ramp Intensity");
                     EditorGUILayout.HelpBox(
-                        "Color Ramp is set via the OpenVDBHDRPVolume component's Gradient field.\n" +
+                        "Color Ramp is set via the OpenVDBVolume component's Gradient field.\n" +
                         "The gradient maps density (0=transparent, 1=dense) to color and opacity.",
                         MessageType.Info);
                 }
@@ -131,7 +131,7 @@ namespace OpenVDB.Editor
                 if (material.IsKeywordEnabled("ENABLE_SPOT_LIGHTS"))
                 {
                     EditorGUILayout.HelpBox(
-                        "Spot lights are configured via the OpenVDBHDRPVolume component.\n" +
+                        "Spot lights are configured via the OpenVDBVolume component.\n" +
                         "Assign up to 2 Unity Spot Lights in the component's Spot Lights array.",
                         MessageType.Info);
                 }
@@ -148,7 +148,7 @@ namespace OpenVDB.Editor
                 materialEditor.ShaderProperty(FindProperty("_ShadowExtraBias", properties), "Extra Bias");
                 materialEditor.ShaderProperty(FindProperty("_ShadowDensityThreshold", properties), "Density Threshold");
                 EditorGUILayout.HelpBox(
-                    "Shadow casting is toggled via the OpenVDBHDRPVolume component.\n" +
+                    "Shadow casting is toggled via the OpenVDBVolume component.\n" +
                     "When enabled, the volume casts shadows onto other meshes.\n" +
                     "This is GPU-expensive — use only when needed.",
                     MessageType.Info);

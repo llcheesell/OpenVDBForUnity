@@ -12,6 +12,7 @@ namespace OpenVDB.Realtime
     /// - Temporal reprojection for amortized quality
     /// - Henyey-Greenstein phase function for realistic scattering
     /// </summary>
+    [Obsolete("Use OpenVDB.OpenVDBVolume instead. This component will be removed in a future version.")]
     [ExecuteAlways]
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]
