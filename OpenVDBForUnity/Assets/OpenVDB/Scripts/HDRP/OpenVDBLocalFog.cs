@@ -18,7 +18,7 @@ namespace OpenVDB
     /// 2. Assign a Texture3D from OpenVDB data
     /// 3. The component will sync the texture and parameters to LocalVolumetricFog
     ///
-    /// For higher quality rendering, use OpenVDBHDRPVolume instead.
+    /// For higher quality rendering, use OpenVDBVolume instead.
     /// </summary>
     [ExecuteAlways]
     public class OpenVDBLocalFog : MonoBehaviour
