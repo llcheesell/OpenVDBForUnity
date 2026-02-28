@@ -87,8 +87,8 @@
 
 ### Built-in Render Pipeline
 
-- **Realtime**: `OpenVDB/Realtime/Standard` -- `_LightColor0` 統合による完全な機能セット（ShadowCaster なし）
-- **Classic**: `OpenVDB/Standard` -- 基本ボリュームレンダリング
+- **Realtime**: `OpenVDB/Realtime/Standard` -- `_LightColor0` 統合による完全な機能セット
+- **Classic**: `OpenVDB/Standard` -- ShadowCaster パス、Light/Ambient Influence 対応のボリュームレンダリング
 
 ## タイムライン / シーケンス再生
 
@@ -171,8 +171,8 @@ OpenVDBForUnity/
 │           ├── Scripts/
 │           │   ├── OpenVDBVolume.cs  # 統合ボリュームコンポーネント（Classic + Realtime）
 │           │   ├── Importer/        # ランタイム C# スクリプト（P/Invoke、メッシュ、テクスチャ）
-│           │   ├── HDRP/            # Classic HDRP ボリュームコンポーネント（非推奨）
-│           │   ├── Realtime/        # Realtime ボリューム、シーケンスプレイヤー、LOD コントローラー
+│           │   ├── HDRP/            # HDRP 固有コンポーネント（LocalVolumetricFog ブリッジ）
+│           │   ├── Realtime/        # Realtime ヘルパー（オキュパンシーグリッド、品質プリセット）
 │           │   ├── Plugins/x86_64/  # ネイティブプラグインバイナリ
 │           │   ├── Sequence/        # VDB シーケンスプレイヤー
 │           │   └── Timeline/        # Timeline 統合
@@ -192,26 +192,28 @@ OpenVDBForUnity/
 
 ## 旧コンポーネントからの移行
 
-以前の `OpenVDBHDRPVolume` および `OpenVDBRealtimeVolume` コンポーネントは非推奨です。代わりに `OpenVDBVolume` を使用してください:
+レガシーの `OpenVDBHDRPVolume` および `OpenVDBRealtimeVolume` コンポーネントは削除されました。統合された `OpenVDBVolume` コンポーネントを使用してください:
 
-1. GameObject から旧コンポーネントを削除
-2. `OpenVDBVolume` コンポーネントを追加
-3. **Render Mode** を選択（Classic または Realtime）
-4. Volume Texture を再割り当てし、パラメータを設定
+1. GameObject に `OpenVDBVolume` コンポーネントを追加
+2. **Render Mode** を選択（Classic または Realtime）
+3. Volume Texture を割り当て、パラメータを設定
 
 ## 変更履歴
 
 ### dev/feature-update (最新)
 
 - **統合アーキテクチャ** -- Classic と Realtime レンダラーを単一の `OpenVDBVolume` コンポーネントに統合。共有機能セットとモード別 Inspector UI を提供
-- **クロスパイプライン スポットライト** -- 最大 2 灯のスポットライト（スムーズな逆二乗距離減衰 + コーン減衰）。HDRP と Built-in RP の両方で動作
+- **クロスパイプライン スポットライト** -- 最大 2 灯のスポットライト（スムーズな二次距離減衰 + コーン減衰）。HDRP と Built-in RP の両方で動作
 - **Standard RP ライトカラー** -- Realtime シェーダーがハードコード白ではなく Unity フォワードレンダリングの `_LightColor0` を読み取るように改善
 - **HDRP 互換性** -- オブジェクト→ワールド変換に `UNITY_MATRIX_M` を使用し、HDRP と Built-in RP 両方のシェーダーコンパイルに対応
 - **キーワードゲート機能** -- すべての共有機能が `shader_feature_local` を使用し、無効時の GPU コストはゼロ
-- **シャドウキャスティング** -- 専用 ShadowCaster パスによる HDRP シャドウマップへのボリューム影生成
+- **シャドウキャスティング** -- 全レンダーパイプラインで専用 ShadowCaster パスによるボリューム影生成。密度閾値設定でバウンディングボックスアーティファクトを防止
 - **カラーランプ** -- グラデーションベースの密度→カラーマッピング（256x1 ルックアップテクスチャにベイク）
 - **クオリティプリセット** -- Low / Medium / High / Ultra プリセットでワンクリック設定
 - **空間スキップ** -- コンピュートシェーダー生成のオキュパンシーグリッドによる DDA トラバーサルで高速スパースボリュームレンダリング
+- **レガシー削除** -- 非推奨の `OpenVDBHDRPVolume`、`OpenVDBRealtimeVolume`、および孤立プロトタイプ（BrickMap、TemporalReprojection）を削除
+- **Classic Standard RP** -- Light Influence / Ambient Influence ユニフォームおよび ShadowCaster パスを追加
+- **リファクタリング** -- ライト検索のキャッシュ化、スポットライト同期とオキュパンシーグリッド生成の重複排除
 
 ## ライセンス
 

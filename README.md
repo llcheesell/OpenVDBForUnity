@@ -87,8 +87,8 @@ All features are keyword-gated via `shader_feature_local` for zero GPU cost when
 
 ### Built-in Render Pipeline
 
-- **Realtime**: `OpenVDB/Realtime/Standard` -- Full feature set with `_LightColor0` integration (no ShadowCaster)
-- **Classic**: `OpenVDB/Standard` -- Basic volume rendering
+- **Realtime**: `OpenVDB/Realtime/Standard` -- Full feature set with `_LightColor0` integration
+- **Classic**: `OpenVDB/Standard` -- Volume rendering with ShadowCaster pass, Light/Ambient Influence
 
 ## Timeline / Sequence Playback
 
@@ -171,8 +171,8 @@ OpenVDBForUnity/
 │           ├── Scripts/
 │           │   ├── OpenVDBVolume.cs  # Unified volume component (Classic + Realtime)
 │           │   ├── Importer/        # Runtime C# scripts (P/Invoke, mesh, texture)
-│           │   ├── HDRP/            # Classic HDRP volume component (deprecated)
-│           │   ├── Realtime/        # Realtime volume, sequence player, LOD controller
+│           │   ├── HDRP/            # HDRP-specific components (LocalVolumetricFog bridge)
+│           │   ├── Realtime/        # Realtime helpers (occupancy grid, quality presets)
 │           │   ├── Plugins/x86_64/  # Native plugin binaries
 │           │   ├── Sequence/        # VDB sequence player
 │           │   └── Timeline/        # Timeline integration
@@ -192,26 +192,28 @@ OpenVDBForUnity/
 
 ## Migration from Old Components
 
-The previous `OpenVDBHDRPVolume` and `OpenVDBRealtimeVolume` components are now deprecated. Use `OpenVDBVolume` instead:
+The legacy `OpenVDBHDRPVolume` and `OpenVDBRealtimeVolume` components have been removed. Use the unified `OpenVDBVolume` component instead:
 
-1. Remove the old component from your GameObject
-2. Add `OpenVDBVolume` component
-3. Select the desired **Render Mode** (Classic or Realtime)
-4. Reassign your Volume Texture and configure parameters
+1. Add `OpenVDBVolume` component to your GameObject
+2. Select the desired **Render Mode** (Classic or Realtime)
+3. Assign your Volume Texture and configure parameters
 
 ## Changelog
 
 ### dev/feature-update (latest)
 
 - **Unified Architecture** -- Merged Classic and Realtime renderers into a single `OpenVDBVolume` component with shared feature set and per-mode Inspector UI
-- **Cross-Pipeline Spot Lights** -- Up to 2 spot lights with smooth inverse-square distance falloff and cone attenuation, working on both HDRP and Built-in RP
+- **Cross-Pipeline Spot Lights** -- Up to 2 spot lights with smooth quadratic distance falloff and cone attenuation, working on both HDRP and Built-in RP
 - **Standard RP Light Color** -- Realtime shader now reads `_LightColor0` from Unity's forward rendering pipeline instead of hardcoded white
 - **HDRP Compatibility** -- Uses `UNITY_MATRIX_M` for object-to-world transforms, compatible with both HDRP and Built-in RP shader compilation
 - **Keyword-Gated Features** -- All shared features use `shader_feature_local` for zero GPU cost when disabled
-- **Shadow Casting** -- Volumes can cast shadows into the HDRP shadow map via a dedicated ShadowCaster pass
+- **Shadow Casting** -- Volumes cast shadows via dedicated ShadowCaster passes on all render pipelines, with configurable density threshold to prevent bounding-box artifacts
 - **Color Ramp** -- Gradient-based density-to-color mapping baked to a 256x1 lookup texture
 - **Quality Presets** -- Low / Medium / High / Ultra presets with one-click configuration
 - **Empty Space Skipping** -- Compute-shader-generated occupancy grid with DDA traversal for fast sparse volume rendering
+- **Legacy Cleanup** -- Removed deprecated `OpenVDBHDRPVolume`, `OpenVDBRealtimeVolume`, and orphaned prototype components (BrickMap, TemporalReprojection)
+- **Classic Standard RP** -- Added Light Influence / Ambient Influence uniforms and ShadowCaster pass
+- **Refactoring** -- Cached light lookups, deduplicated spot light sync and occupancy grid generation
 
 ## License
 

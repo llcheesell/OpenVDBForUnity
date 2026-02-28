@@ -226,7 +226,12 @@ Unity's built-in HDRP includes a volumetric fog system:
 
 ## 5. Implementation Strategy for This Project
 
-### 5.1 Brick Map Atlas Approach (Selected)
+### 5.1 Brick Map Atlas Approach (Explored, Not Adopted)
+
+> **Status**: This approach was prototyped but not integrated into the final implementation.
+> The project uses a simpler **occupancy grid** (compute-shader-generated sparse 3D RenderTexture)
+> for empty space skipping via DDA traversal. The occupancy grid approach provides similar
+> performance benefits with significantly lower implementation complexity.
 
 For maximum Unity compatibility and performance:
 
