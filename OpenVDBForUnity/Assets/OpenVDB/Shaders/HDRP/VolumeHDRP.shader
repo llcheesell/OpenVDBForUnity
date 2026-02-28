@@ -5,6 +5,7 @@ Shader "OpenVDB/HDRP/Standard"
         _Volume ("Volume", 3D) = "" {}
         _Intensity ("Intensity", Range(0.1, 2.0)) = 0.3
         _StepDistance ("Step Distance", Range(0.005, 0.1)) = 0.01
+        _MaxIterations ("Max Iterations", Range(16, 200)) = 100
         _ShadowSteps ("Shadow Steps", Range(1, 64)) = 32
         _ShadowDensity ("Shadow Density", Color) = (0.4, 0.4, 0.4, 1)
         _ShadowThreshold ("Shadow Threshold", Range(0.001, 0.1)) = 0.001
@@ -64,6 +65,33 @@ Shader "OpenVDB/HDRP/Standard"
             #pragma instancing_options renderinglayer
 
             #include "VolumeHDRP.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags
+            {
+                "LightMode" = "ShadowCaster"
+            }
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            Cull [_Cull]
+
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma only_renderers d3d11 vulkan metal playstation xboxone xboxseries switch
+
+            #pragma vertex Vert
+            #pragma fragment FragShadow
+
+            #pragma multi_compile_instancing
+            #pragma instancing_options renderinglayer
+
+            #include "VolumeHDRPShadow.hlsl"
             ENDHLSL
         }
     }

@@ -8,6 +8,7 @@ namespace OpenVDB.Editor
         bool m_showQuality = true;
         bool m_showLighting = true;
         bool m_showAmbient = true;
+        bool m_showDepth = true;
 
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] properties)
         {
@@ -30,6 +31,7 @@ namespace OpenVDB.Editor
                 EditorGUI.indentLevel++;
                 materialEditor.ShaderProperty(FindProperty("_Intensity", properties), "Intensity");
                 materialEditor.ShaderProperty(FindProperty("_StepDistance", properties), "Step Distance");
+                materialEditor.ShaderProperty(FindProperty("_MaxIterations", properties), "Max Iterations");
 
                 EditorGUILayout.HelpBox(
                     "Lower Step Distance = Higher quality but more GPU cost.\n" +
@@ -59,6 +61,12 @@ namespace OpenVDB.Editor
                         materialEditor.ShaderProperty(FindProperty("_MainLightDir", properties), "Light Direction");
                         materialEditor.ShaderProperty(FindProperty("_MainLightColor", properties), "Light Color");
                     }
+                    else
+                    {
+                        EditorGUILayout.HelpBox(
+                            "Directional and Spotlight data are read from the HDRP light buffer automatically.",
+                            MessageType.Info);
+                    }
                 }
                 EditorGUI.indentLevel--;
             }
@@ -76,6 +84,18 @@ namespace OpenVDB.Editor
                     materialEditor.ShaderProperty(FindProperty("_AmbientColor", properties), "Color");
                     materialEditor.ShaderProperty(FindProperty("_AmbientDensity", properties), "Density");
                 }
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space();
+
+            // Depth options
+            m_showDepth = EditorGUILayout.Foldout(m_showDepth, "Depth", true);
+            if (m_showDepth)
+            {
+                EditorGUI.indentLevel++;
+                materialEditor.ShaderProperty(FindProperty("_EnableDepthWrite", properties), "Write Depth (voxel-accurate)");
+                materialEditor.ShaderProperty(FindProperty("_EnableSceneDepthClip", properties), "Clip Against Scene Depth");
                 EditorGUI.indentLevel--;
             }
 

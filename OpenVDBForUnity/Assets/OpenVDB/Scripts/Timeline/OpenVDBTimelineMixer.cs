@@ -3,10 +3,6 @@ using UnityEngine.Playables;
 
 namespace OpenVDB
 {
-    /// <summary>
-    /// Mixer for OpenVDB Timeline track.
-    /// Handles mapping the Timeline playback position to VDB sequence frames.
-    /// </summary>
     public class OpenVDBTimelineMixer : PlayableBehaviour
     {
         OpenVDBSequencePlayer m_sequencePlayer;
@@ -25,7 +21,6 @@ namespace OpenVDB
                 var inputPlayable = (ScriptPlayable<OpenVDBTimelineBehaviour>)playable.GetInput(i);
                 var behaviour = inputPlayable.GetBehaviour();
 
-                // Get normalized time within this clip (0-1)
                 double clipDuration = inputPlayable.GetDuration();
                 double clipTime = inputPlayable.GetTime();
 
@@ -33,16 +28,17 @@ namespace OpenVDB
 
                 float normalizedTime = (float)(clipTime / clipDuration);
 
-                // Determine frame offset from the clip asset
-                int frameOffset = 0;
-                // We pass the frame offset through the behaviour if needed
+                if (behaviour.frameRateOverride > 0f)
+                {
+                    m_sequencePlayer.frameRate = behaviour.frameRateOverride;
+                }
 
                 int totalFrames = m_sequencePlayer.frameCount;
-                int frame = Mathf.FloorToInt(normalizedTime * totalFrames) + frameOffset;
+                int frame = Mathf.FloorToInt(normalizedTime * totalFrames) + behaviour.frameOffset;
                 frame = Mathf.Clamp(frame, 0, totalFrames - 1);
 
                 m_sequencePlayer.currentFrame = frame;
-                break; // Use the first active clip
+                break;
             }
         }
     }

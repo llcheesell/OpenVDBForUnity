@@ -38,6 +38,9 @@ namespace OpenVDB
         public override Playable CreatePlayable(PlayableGraph graph, GameObject owner)
         {
             var playable = ScriptPlayable<OpenVDBTimelineBehaviour>.Create(graph);
+            var behaviour = playable.GetBehaviour();
+            behaviour.frameRateOverride = m_frameRateOverride;
+            behaviour.frameOffset = m_frameOffset;
             return playable;
         }
     }

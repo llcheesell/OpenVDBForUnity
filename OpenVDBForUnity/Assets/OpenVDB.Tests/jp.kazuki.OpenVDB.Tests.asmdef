@@ -3,7 +3,6 @@
     "rootNamespace": "",
     "references": [
         "jp.kazuki.OpenVDB",
-        "jp.kazuki.OpenVDB.PackageBuild",
         "jp.kazuki.OpenVDB.Editor"
     ],
     "includePlatforms": [

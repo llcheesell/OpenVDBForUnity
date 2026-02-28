@@ -33,7 +33,6 @@ Shader "OpenVDB/Standard"
         Cull [_Cull]
         Blend SrcAlpha OneMinusSrcAlpha
 
-
         Pass
         {
             Tags
@@ -49,6 +48,26 @@ Shader "OpenVDB/Standard"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fwdbase
+            ENDCG
+        }
+
+        Pass
+        {
+            Tags
+            {
+                "LightMode"="ShadowCaster"
+            }
+
+            ZWrite On
+            ZTest LEqual
+            Cull Off
+
+            CGPROGRAM
+
+            #include "./VolumeShadowCaster.cginc"
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_shadowcaster
             ENDCG
         }
     }

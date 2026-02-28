@@ -9,17 +9,17 @@
 #include "VolumeHDRPCamera.hlsl"
 #include "VolumeHDRPUtils.hlsl"
 
-#ifndef ITERATIONS
-#define ITERATIONS 100
+#ifndef MAX_ITERATIONS
+#define MAX_ITERATIONS 200
 #endif
+
+#define MAX_SPOT_LIGHTS 4
 
 TEXTURE3D(_Volume);
 SAMPLER(sampler_Volume);
 
-// _CameraDepthTexture is declared in HDRP's ShaderVariables.hlsl as TEXTURE2D_X.
-// Use LoadCameraDepth(uint2) or SampleCameraDepth(float2) to access it.
-
 half _Intensity;
+int _MaxIterations;
 half _ShadowSteps;
 half _ShadowThreshold;
 half3 _ShadowDensity;
@@ -30,14 +30,27 @@ half3 _AmbientColor;
 float _AmbientDensity;
 #endif
 
-// Light direction and color - set from C# or read from HDRP light buffer
 float3 _MainLightDir;
 float3 _MainLightColor;
-float _UseHDRPLightData;
 
 float SampleVolume(float3 uv)
 {
     return SAMPLE_TEXTURE3D_LOD(_Volume, sampler_Volume, uv, 0).r;
+}
+
+// Smooth distance attenuation that reaches zero at the light range
+float DistanceAttenuation(float distSq, float invRangeSq)
+{
+    float factor = distSq * invRangeSq;
+    float smoothFactor = saturate(1.0 - factor * factor);
+    return smoothFactor * smoothFactor / max(distSq, 0.0001);
+}
+
+// Spot angle attenuation using HDRP's angleScale/angleOffset
+float SpotAngleAttenuation(float cosAngle, float angleScale, float angleOffset)
+{
+    float atten = saturate(cosAngle * angleScale + angleOffset);
+    return atten * atten;
 }
 
 struct Attributes
@@ -77,6 +90,8 @@ Varyings Vert(Attributes input)
 FragOutput Frag(Varyings input)
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+    int maxIter = clamp(_MaxIterations, 16, MAX_ITERATIONS);
 
     Ray ray;
 
@@ -121,25 +136,17 @@ FragOutput Frag(Varyings input)
 
     #ifdef ENABLE_TRACE_DISTANCE_LIMITED
     {
-        // Use HDRP's LoadCameraDepth to read the opaque depth buffer
-        // input.positionCS.xy is the pixel coordinate (SV_POSITION semantic)
         uint2 pixelCoords = uint2(input.positionCS.xy);
         float rawDepth = LoadCameraDepth(pixelCoords);
 
-        // Reconstruct world-space position of the scene geometry at this pixel
-        // using HDRP's inverse view-projection matrix
         float2 screenUV = input.positionCS.xy * _ScreenSize.zw;
         float3 sceneWorldPos = ComputeWorldSpacePosition(screenUV, rawDepth, UNITY_MATRIX_I_VP);
 
-        // Convert scene world position to volume's local space
         float3 sceneLocalPos = LocalizePosition(sceneWorldPos, UNITY_MATRIX_I_M);
 
-        // Compute the distance from ray origin to scene geometry along the ray direction
-        // Use dot product (projection onto ray) instead of raw distance to handle oblique angles
         float3 toScene = sceneLocalPos - ray.origin;
         float tfar2 = dot(toScene, ray.dir);
 
-        // Only limit if scene geometry is in front of us (tfar2 > 0)
         if (tfar2 > 0)
         {
             end = ray.origin + ray.dir * min(tfar, tfar2);
@@ -151,7 +158,7 @@ FragOutput Frag(Varyings input)
     half stepCount = dist / stepDist;
     float3 ds = ray.dir * stepDist;
 
-    // Light direction - use HDRP directional light data or fallback
+    // Directional light setup
     float3 lightDir;
     float3 lightColor;
 
@@ -176,6 +183,37 @@ FragOutput Frag(Varyings input)
     float3 shadowDensity = 1.0 / _ShadowDensity * shadowstepsize;
     float shadowThreshold = -log(_ShadowThreshold) / length(shadowDensity);
 
+    // Precompute spotlight data in object space
+    #ifdef ENABLE_HDRP_LIGHT_DATA
+    int spotLightCount = min((int)_PunctualLightCount, MAX_SPOT_LIGHTS);
+
+    float3 spotPosOS[MAX_SPOT_LIGHTS];
+    float3 spotFwdOS[MAX_SPOT_LIGHTS];
+    float3 spotColor[MAX_SPOT_LIGHTS];
+    float spotInvRangeSq[MAX_SPOT_LIGHTS];
+    float spotAngleScale[MAX_SPOT_LIGHTS];
+    float spotAngleOffset[MAX_SPOT_LIGHTS];
+    int actualSpotCount = 0;
+
+    for (int sl = 0; sl < spotLightCount; sl++)
+    {
+        LightData pLight = _PunctualLightDatas[sl];
+        // HDRP lightType: Spot = 1
+        if (pLight.lightType == 1)
+        {
+            spotPosOS[actualSpotCount] = LocalizePosition(pLight.positionRWS, UNITY_MATRIX_I_M);
+            spotFwdOS[actualSpotCount] = normalize(mul((float3x3)UNITY_MATRIX_I_M, pLight.forward));
+            spotColor[actualSpotCount] = pLight.color;
+            float range = pLight.range;
+            spotInvRangeSq[actualSpotCount] = 1.0 / max(range * range, 0.0001);
+            spotAngleScale[actualSpotCount] = pLight.angleScale;
+            spotAngleOffset[actualSpotCount] = pLight.angleOffset;
+            actualSpotCount++;
+            if (actualSpotCount >= MAX_SPOT_LIGHTS) break;
+        }
+    }
+    #endif
+
     float3 p = start;
     float3 depthPos = end;
     bool depthtest = true;
@@ -184,9 +222,14 @@ FragOutput Frag(Varyings input)
     float transmittance = 1;
     float3 lightenergy = 0;
 
+    // Object-to-world matrix for transforming sample positions
+    float4x4 objToWorld = UNITY_MATRIX_M;
+
     [loop]
-    for (int iter = 0; iter < ITERATIONS; iter++)
+    for (int iter = 0; iter < MAX_ITERATIONS; iter++)
     {
+        if (iter >= maxIter) break;
+
         float3 sampleUV = GetUV(p);
         float cursample = SampleVolume(sampleUV);
 
@@ -225,6 +268,30 @@ FragOutput Frag(Varyings input)
             float3 shadowterm = exp(-shadowdist * shadowDensity);
             float3 absorbedlight = shadowterm * curdensity;
             lightenergy += absorbedlight * transmittance;
+
+            // Spotlight contribution
+            #ifdef ENABLE_HDRP_LIGHT_DATA
+            for (int si = 0; si < actualSpotCount; si++)
+            {
+                float3 toLight = spotPosOS[si] - p;
+                float distSq = dot(toLight, toLight);
+
+                // Apply the volume's object scale to get correct world-space distance
+                // The local-space distance needs to be adjusted by the object scale
+                float3 toLightWS = mul((float3x3)objToWorld, toLight);
+                float distSqWS = dot(toLightWS, toLightWS);
+
+                float distAtten = DistanceAttenuation(distSqWS, spotInvRangeSq[si]);
+
+                float3 toLightDirOS = normalize(toLight);
+                float cosAngle = dot(toLightDirOS, -spotFwdOS[si]);
+                float spotAtten = SpotAngleAttenuation(cosAngle, spotAngleScale[si], spotAngleOffset[si]);
+
+                float3 spotContrib = spotColor[si] * distAtten * spotAtten * curdensity;
+                lightenergy += spotContrib * transmittance;
+            }
+            #endif
+
             transmittance *= 1 - curdensity;
 
             #ifdef ENABLE_AMBIENT_LIGHT
@@ -261,7 +328,6 @@ FragOutput Frag(Varyings input)
     o.color = float4(lightenergy, 1 - transmittance);
 
 #ifdef ENABLE_DEPTH_WRITE
-    // Write depth at the first voxel hit position
     float3 depthWorldPos = TransformObjectToWorld(depthPos);
     float4 depthClipPos = TransformWorldToHClip(depthWorldPos);
     o.depth = depthClipPos.z / depthClipPos.w;

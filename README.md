@@ -1,5 +1,7 @@
 # OpenVDBForUnity
 
+[日本語](README_ja.md)
+
 Unity plugin for importing and rendering [OpenVDB](http://www.openvdb.org/) volumes.
 
 ![gif](https://github.com/karasusan/OpenVDBForUnity/wiki/images/CloudSample.gif)
@@ -64,6 +66,10 @@ The `OpenVDB/HDRP/Standard` shader is designed for HDRP 14.x and provides:
 - **Clip Against Scene Depth** -- Reads the opaque depth buffer to stop volume ray marching at scene geometry surfaces. This prevents VDB volumes from rendering behind opaque objects like meshes and planes.
 
 Both options can be toggled independently from the material inspector.
+
+#### Spotlight Support
+
+When using HDRP with `Auto HDRP Light` enabled, the volume automatically receives influence from spotlights in the scene. The shader reads HDRP's punctual light buffer and applies proper cone angle falloff and distance attenuation for natural-looking volumetric spotlight effects.
 
 ### Built-in Render Pipeline
 

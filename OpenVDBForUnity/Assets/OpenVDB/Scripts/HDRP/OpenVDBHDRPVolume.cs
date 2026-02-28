@@ -53,6 +53,7 @@ namespace OpenVDB
         MeshRenderer m_renderer;
         MaterialPropertyBlock m_propertyBlock;
 
+        static readonly int s_maxIterationsId = Shader.PropertyToID("_MaxIterations");
         static readonly int s_intensityId = Shader.PropertyToID("_Intensity");
         static readonly int s_stepDistanceId = Shader.PropertyToID("_StepDistance");
         static readonly int s_shadowStepsId = Shader.PropertyToID("_ShadowSteps");
@@ -76,6 +77,7 @@ namespace OpenVDB
 
             m_renderer.GetPropertyBlock(m_propertyBlock);
 
+            m_propertyBlock.SetInt(s_maxIterationsId, m_maxIterations);
             m_propertyBlock.SetFloat(s_intensityId, m_intensity);
             m_propertyBlock.SetFloat(s_stepDistanceId, m_stepDistance);
             m_propertyBlock.SetFloat(s_shadowStepsId, m_shadowSteps);

@@ -67,10 +67,6 @@ namespace OpenVDB
             m_mesh = Voxelizer.VoxelMesh.Build(new[] { position }, 1f);
         }
 
-        public void SyncDataEnd()
-        {
-        }
-
         public void Dispose()
         {
             if(m_texture3D != null)

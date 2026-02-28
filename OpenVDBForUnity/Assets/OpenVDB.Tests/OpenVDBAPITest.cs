@@ -1,23 +1,10 @@
 using NUnit.Framework;
 using UnityEngine;
-using OpenVDB.PackageBuild;
 
 namespace OpenVDB.Tests
 {
     public class OpenVDBAPITest
     {
-        [OneTimeSetUp]
-        public void OneTimeSetUp()
-        {
-            LibraryDownloader.Run();
-        }
-
-        [OneTimeTearDown]
-        public void OneTimeTearDown()
-        {
-            LibraryDownloader.Clear();
-        }
-
         [SetUp]
         public void SetUp()
         {

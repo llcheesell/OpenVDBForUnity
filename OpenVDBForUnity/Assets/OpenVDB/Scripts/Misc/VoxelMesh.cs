@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 
 using UnityEngine;
-using System.Linq;
 using UnityEngine.Rendering;
 
 namespace Voxelizer
@@ -83,19 +82,6 @@ namespace Voxelizer
             mesh.SetIndices(triangles.ToArray(), MeshTopology.Triangles, 0);
             mesh.RecalculateBounds();
             return mesh;
-        }
-
-        // set one triangle to a mesh
-        static void AddTriangle(
-            Vector3 v0, Vector3 v1, Vector3 v2, Vector3 normal, Vector3 uv,
-            List<Vector3> vertices, List<Vector3> normals, List<int> triangles, List<Vector3> uvs
-        )
-        {
-            int i = vertices.Count;
-            vertices.Add(v0); vertices.Add(v1); vertices.Add(v2);
-            normals.Add(normal); normals.Add(normal); normals.Add(normal);
-            triangles.Add(i); triangles.Add(i + 1); triangles.Add(i + 2);
-            uvs.Add(uv); uvs.Add(uv); uvs.Add(uv);
         }
 
         static void AddTriangle(
