@@ -162,6 +162,11 @@ namespace OpenVDB
         Texture2D m_bakedColorRamp;
         bool m_gradientDirty = true;
 
+        // Cached light lookup
+        Light m_cachedMainLight;
+        float m_lightCacheTime;
+        const float LightCacheInterval = 0.5f;
+
         // Realtime-specific runtime state
         Realtime.OccupancyGridGenerator m_occupancyGenerator;
         RenderTexture m_occupancyGrid;
@@ -267,7 +272,7 @@ namespace OpenVDB
         // Mode Switching
         // ====================================================================
 
-        static bool IsHDRP()
+        internal static bool IsHDRP()
         {
             var pipeline = GraphicsSettings.currentRenderPipeline;
             if (pipeline == null) return false;
@@ -456,46 +461,47 @@ namespace OpenVDB
         // Spot Lights
         // ====================================================================
 
+        const int MaxSpotLights = 2;
+
+        static readonly int[][] s_spotLightPropertyIds = {
+            new[] { Shader.PropertyToID("_SpotLight0_Position"), Shader.PropertyToID("_SpotLight0_Direction"),
+                    Shader.PropertyToID("_SpotLight0_Color"), Shader.PropertyToID("_SpotLight0_Params") },
+            new[] { Shader.PropertyToID("_SpotLight1_Position"), Shader.PropertyToID("_SpotLight1_Direction"),
+                    Shader.PropertyToID("_SpotLight1_Color"), Shader.PropertyToID("_SpotLight1_Params") },
+        };
+
         void SyncSpotLights()
         {
             int count = 0;
             if (m_spotLights != null)
             {
-                for (int i = 0; i < Mathf.Min(m_spotLights.Length, 2); i++)
+                for (int i = 0; i < Mathf.Min(m_spotLights.Length, MaxSpotLights); i++)
                 {
                     var light = m_spotLights[i];
                     if (light == null || light.type != LightType.Spot || !light.enabled) continue;
-
-                    var pos = light.transform.position;
-                    var dir = light.transform.forward;
-                    var color = light.color; // intensity is passed separately in params.w
-                    var range = light.range;
-
-                    float outerRad = light.spotAngle * 0.5f * Mathf.Deg2Rad;
-                    float innerRad = light.innerSpotAngle * 0.5f * Mathf.Deg2Rad;
-                    float cosOuter = Mathf.Cos(outerRad);
-                    float cosInner = Mathf.Cos(innerRad);
-                    float angleScale = 1.0f / Mathf.Max(cosInner - cosOuter, 0.001f);
-                    float angleOffset = -cosOuter * angleScale;
-
-                    if (count == 0)
-                    {
-                        m_propertyBlock.SetVector(s_spotLight0PosId, pos);
-                        m_propertyBlock.SetVector(s_spotLight0DirId, dir);
-                        m_propertyBlock.SetVector(s_spotLight0ColorId, new Vector4(color.r, color.g, color.b, 1));
-                        m_propertyBlock.SetVector(s_spotLight0ParamsId, new Vector4(range, angleScale, angleOffset, light.intensity));
-                    }
-                    else if (count == 1)
-                    {
-                        m_propertyBlock.SetVector(s_spotLight1PosId, pos);
-                        m_propertyBlock.SetVector(s_spotLight1DirId, dir);
-                        m_propertyBlock.SetVector(s_spotLight1ColorId, new Vector4(color.r, color.g, color.b, 1));
-                        m_propertyBlock.SetVector(s_spotLight1ParamsId, new Vector4(range, angleScale, angleOffset, light.intensity));
-                    }
+                    SetSpotLightProperties(count, light);
                     count++;
                 }
             }
             m_propertyBlock.SetFloat(s_spotLightCountId, count);
+        }
+
+        void SetSpotLightProperties(int index, Light light)
+        {
+            var ids = s_spotLightPropertyIds[index];
+            var color = light.color;
+
+            float outerRad = light.spotAngle * 0.5f * Mathf.Deg2Rad;
+            float innerRad = light.innerSpotAngle * 0.5f * Mathf.Deg2Rad;
+            float cosOuter = Mathf.Cos(outerRad);
+            float cosInner = Mathf.Cos(innerRad);
+            float angleScale = 1.0f / Mathf.Max(cosInner - cosOuter, 0.001f);
+            float angleOffset = -cosOuter * angleScale;
+
+            m_propertyBlock.SetVector(ids[0], light.transform.position);
+            m_propertyBlock.SetVector(ids[1], light.transform.forward);
+            m_propertyBlock.SetVector(ids[2], new Vector4(color.r, color.g, color.b, 1));
+            m_propertyBlock.SetVector(ids[3], new Vector4(light.range, angleScale, angleOffset, light.intensity));
         }
 
         // ====================================================================
@@ -512,6 +518,22 @@ namespace OpenVDB
                 return;
             }
 
+            // Refresh cached light periodically instead of every frame
+            if (m_cachedMainLight == null || Time.unscaledTime - m_lightCacheTime > LightCacheInterval)
+            {
+                m_cachedMainLight = FindBrightestDirectionalLight();
+                m_lightCacheTime = Time.unscaledTime;
+            }
+
+            if (m_cachedMainLight != null)
+            {
+                m_propertyBlock.SetVector(s_mainLightDirId, -m_cachedMainLight.transform.forward);
+                m_propertyBlock.SetColor(s_mainLightColorId, m_cachedMainLight.color * m_cachedMainLight.intensity);
+            }
+        }
+
+        static Light FindBrightestDirectionalLight()
+        {
             Light brightest = null;
             float maxIntensity = 0f;
             foreach (var light in FindObjectsByType<Light>(FindObjectsSortMode.None))
@@ -522,11 +544,7 @@ namespace OpenVDB
                     maxIntensity = light.intensity;
                 }
             }
-            if (brightest != null)
-            {
-                m_propertyBlock.SetVector(s_mainLightDirId, -brightest.transform.forward);
-                m_propertyBlock.SetColor(s_mainLightColorId, brightest.color * brightest.intensity);
-            }
+            return brightest;
         }
 
         // ====================================================================

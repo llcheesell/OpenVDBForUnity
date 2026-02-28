@@ -31,11 +31,6 @@ namespace OpenVDB.Realtime
         public bool adaptiveStepping = true;
         public bool henyeyGreensteinPhase = true;
         public bool multiScatterApprox = false;
-        public bool temporalReprojection = true;
-
-        [Header("Temporal Reprojection")]
-        [Range(0.01f, 0.3f)]
-        public float temporalBlendFactor = 0.05f;
 
         [Header("Adaptive Stepping")]
         [Range(0f, 2f)]
@@ -66,8 +61,6 @@ namespace OpenVDB.Realtime
                     preset.adaptiveStepping = true;
                     preset.henyeyGreensteinPhase = false;
                     preset.multiScatterApprox = false;
-                    preset.temporalReprojection = true;
-                    preset.temporalBlendFactor = 0.03f;
                     break;
 
                 case QualityLevel.Medium:
@@ -79,8 +72,6 @@ namespace OpenVDB.Realtime
                     preset.adaptiveStepping = true;
                     preset.henyeyGreensteinPhase = true;
                     preset.multiScatterApprox = false;
-                    preset.temporalReprojection = true;
-                    preset.temporalBlendFactor = 0.05f;
                     break;
 
                 case QualityLevel.High:
@@ -92,8 +83,6 @@ namespace OpenVDB.Realtime
                     preset.adaptiveStepping = true;
                     preset.henyeyGreensteinPhase = true;
                     preset.multiScatterApprox = true;
-                    preset.temporalReprojection = true;
-                    preset.temporalBlendFactor = 0.08f;
                     break;
 
                 case QualityLevel.Ultra:
@@ -105,8 +94,6 @@ namespace OpenVDB.Realtime
                     preset.adaptiveStepping = false;
                     preset.henyeyGreensteinPhase = true;
                     preset.multiScatterApprox = true;
-                    preset.temporalReprojection = true;
-                    preset.temporalBlendFactor = 0.1f;
                     break;
             }
 

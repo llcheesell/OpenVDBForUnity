@@ -34,21 +34,14 @@ namespace OpenVDB
             }
         }
 
-        static bool IsHDRP()
-        {
-            var pipeline = GraphicsSettings.currentRenderPipeline;
-            if (pipeline == null) return false;
-            return pipeline.GetType().Name.Contains("HDRenderPipelineAsset");
-        }
-
         static string GetDefaultShaderName()
         {
-            return IsHDRP() ? "OpenVDB/HDRP/Standard" : "OpenVDB/Standard";
+            return OpenVDBVolume.IsHDRP() ? "OpenVDB/HDRP/Standard" : "OpenVDB/Standard";
         }
 
         static string GetRealtimeShaderName()
         {
-            return IsHDRP() ? "OpenVDB/Realtime/HDRP" : "OpenVDB/Realtime/Standard";
+            return OpenVDBVolume.IsHDRP() ? "OpenVDB/Realtime/HDRP" : "OpenVDB/Realtime/Standard";
         }
 
         public override void OnImportAsset(AssetImportContext ctx)

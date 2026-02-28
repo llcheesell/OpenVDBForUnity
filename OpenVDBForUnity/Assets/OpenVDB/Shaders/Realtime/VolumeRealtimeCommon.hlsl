@@ -81,7 +81,7 @@ struct SpotLightData
 {
     float3 position;   // World space position
     float3 direction;  // World space direction (forward)
-    float3 color;      // Light color * intensity
+    float3 color;      // Light color (intensity in params.w)
     float4 params;     // (range, angleScale, angleOffset, intensity)
 };
 

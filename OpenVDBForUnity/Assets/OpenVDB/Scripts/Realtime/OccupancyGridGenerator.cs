@@ -22,6 +22,8 @@ namespace OpenVDB.Realtime
         static readonly int s_mipDestId = Shader.PropertyToID("_OccupancyMipDest");
         static readonly int s_mipSourceSizeId = Shader.PropertyToID("_MipSourceSize");
 
+        const int ThreadGroupSize = 4; // Must match [numthreads(4,4,4)] in compute shader
+
         public OccupancyGridGenerator(ComputeShader computeShader)
         {
             m_computeShader = computeShader;
@@ -32,35 +34,9 @@ namespace OpenVDB.Realtime
         /// <summary>
         /// Builds an occupancy grid from the given volume texture.
         /// </summary>
-        /// <param name="sourceVolume">Dense 3D volume texture</param>
-        /// <param name="divisor">How many times smaller the occupancy grid is (e.g., 8 means each cell covers 8x8x8 voxels)</param>
-        /// <param name="densityThreshold">Minimum density to mark a cell as occupied</param>
-        /// <returns>Occupancy grid as a RenderTexture (3D, RFloat)</returns>
         public RenderTexture Generate(Texture3D sourceVolume, int divisor = 8, float densityThreshold = 0.001f)
         {
-            int srcW = sourceVolume.width;
-            int srcH = sourceVolume.height;
-            int srcD = sourceVolume.depth;
-
-            int occW = Mathf.Max(1, srcW / divisor);
-            int occH = Mathf.Max(1, srcH / divisor);
-            int occD = Mathf.Max(1, srcD / divisor);
-
-            var occupancyGrid = CreateVolumeRT(occW, occH, occD, RenderTextureFormat.RFloat);
-
-            m_computeShader.SetTexture(m_buildKernel, s_sourceVolumeId, sourceVolume);
-            m_computeShader.SetTexture(m_buildKernel, s_occupancyGridId, occupancyGrid);
-            m_computeShader.SetInts(s_sourceSizeId, srcW, srcH, srcD);
-            m_computeShader.SetInts(s_occupancySizeId, occW, occH, occD);
-            m_computeShader.SetFloat(s_densityThresholdId, densityThreshold);
-
-            int groupsX = Mathf.CeilToInt(occW / 4f);
-            int groupsY = Mathf.CeilToInt(occH / 4f);
-            int groupsZ = Mathf.CeilToInt(occD / 4f);
-
-            m_computeShader.Dispatch(m_buildKernel, groupsX, groupsY, groupsZ);
-
-            return occupancyGrid;
+            return GenerateInternal(sourceVolume, sourceVolume.width, sourceVolume.height, sourceVolume.depth, divisor, densityThreshold);
         }
 
         /// <summary>
@@ -68,6 +44,11 @@ namespace OpenVDB.Realtime
         /// </summary>
         public RenderTexture Generate(RenderTexture sourceVolume, int srcW, int srcH, int srcD, int divisor = 8, float densityThreshold = 0.001f)
         {
+            return GenerateInternal(sourceVolume, srcW, srcH, srcD, divisor, densityThreshold);
+        }
+
+        RenderTexture GenerateInternal(Texture sourceVolume, int srcW, int srcH, int srcD, int divisor, float densityThreshold)
+        {
             int occW = Mathf.Max(1, srcW / divisor);
             int occH = Mathf.Max(1, srcH / divisor);
             int occD = Mathf.Max(1, srcD / divisor);
@@ -80,9 +61,9 @@ namespace OpenVDB.Realtime
             m_computeShader.SetInts(s_occupancySizeId, occW, occH, occD);
             m_computeShader.SetFloat(s_densityThresholdId, densityThreshold);
 
-            int groupsX = Mathf.CeilToInt(occW / 4f);
-            int groupsY = Mathf.CeilToInt(occH / 4f);
-            int groupsZ = Mathf.CeilToInt(occD / 4f);
+            int groupsX = Mathf.CeilToInt((float)occW / ThreadGroupSize);
+            int groupsY = Mathf.CeilToInt((float)occH / ThreadGroupSize);
+            int groupsZ = Mathf.CeilToInt((float)occD / ThreadGroupSize);
 
             m_computeShader.Dispatch(m_buildKernel, groupsX, groupsY, groupsZ);
 
