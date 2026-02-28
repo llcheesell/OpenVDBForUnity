@@ -8,6 +8,11 @@ namespace OpenVDB.Editor
         bool m_showQuality = true;
         bool m_showLighting = true;
         bool m_showAmbient = true;
+        bool m_showLightInfluence = true;
+        bool m_showColorRamp = false;
+        bool m_showSpotLights = false;
+        bool m_showShadowCasting = false;
+        bool m_showDepth = false;
 
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] properties)
         {
@@ -37,6 +42,23 @@ namespace OpenVDB.Editor
                     MessageType.Info);
 
                 materialEditor.ShaderProperty(FindProperty("_Cull", properties), "Culling");
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space();
+
+            // Light Influence
+            m_showLightInfluence = EditorGUILayout.Foldout(m_showLightInfluence, "Light Influence", true);
+            if (m_showLightInfluence)
+            {
+                EditorGUI.indentLevel++;
+                materialEditor.ShaderProperty(FindProperty("_LightInfluence", properties), "Light Influence");
+                materialEditor.ShaderProperty(FindProperty("_AmbientInfluence", properties), "Ambient Influence");
+                EditorGUILayout.HelpBox(
+                    "Controls how much scene lights affect the volume.\n" +
+                    "1.0 = Normal, <1 = Dimmer, >1 = Brighter.\n" +
+                    "Independent of Intensity (which controls density).",
+                    MessageType.Info);
                 EditorGUI.indentLevel--;
             }
 
@@ -76,6 +98,72 @@ namespace OpenVDB.Editor
                     materialEditor.ShaderProperty(FindProperty("_AmbientColor", properties), "Color");
                     materialEditor.ShaderProperty(FindProperty("_AmbientDensity", properties), "Density");
                 }
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space();
+
+            // Color Ramp
+            m_showColorRamp = EditorGUILayout.Foldout(m_showColorRamp, "Color Ramp", true);
+            if (m_showColorRamp)
+            {
+                EditorGUI.indentLevel++;
+                materialEditor.ShaderProperty(FindProperty("_EnableColorRamp", properties), "Enable");
+                if (material.IsKeywordEnabled("ENABLE_COLOR_RAMP"))
+                {
+                    materialEditor.ShaderProperty(FindProperty("_ColorRampIntensity", properties), "Ramp Intensity");
+                    EditorGUILayout.HelpBox(
+                        "Color Ramp is set via the OpenVDBVolume component's Gradient field.\n" +
+                        "The gradient maps density (0=transparent, 1=dense) to color and opacity.",
+                        MessageType.Info);
+                }
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space();
+
+            // Spot Lights
+            m_showSpotLights = EditorGUILayout.Foldout(m_showSpotLights, "Spot Lights", true);
+            if (m_showSpotLights)
+            {
+                EditorGUI.indentLevel++;
+                materialEditor.ShaderProperty(FindProperty("_EnableSpotLights", properties), "Enable");
+                if (material.IsKeywordEnabled("ENABLE_SPOT_LIGHTS"))
+                {
+                    EditorGUILayout.HelpBox(
+                        "Spot lights are configured via the OpenVDBVolume component.\n" +
+                        "Assign up to 2 Unity Spot Lights in the component's Spot Lights array.",
+                        MessageType.Info);
+                }
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space();
+
+            // Shadow Casting
+            m_showShadowCasting = EditorGUILayout.Foldout(m_showShadowCasting, "Shadow Casting", true);
+            if (m_showShadowCasting)
+            {
+                EditorGUI.indentLevel++;
+                materialEditor.ShaderProperty(FindProperty("_ShadowExtraBias", properties), "Extra Bias");
+                materialEditor.ShaderProperty(FindProperty("_ShadowDensityThreshold", properties), "Density Threshold");
+                EditorGUILayout.HelpBox(
+                    "Shadow casting is toggled via the OpenVDBVolume component.\n" +
+                    "When enabled, the volume casts shadows onto other meshes.\n" +
+                    "This is GPU-expensive — use only when needed.",
+                    MessageType.Info);
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space();
+
+            // Depth options
+            m_showDepth = EditorGUILayout.Foldout(m_showDepth, "Depth Options", true);
+            if (m_showDepth)
+            {
+                EditorGUI.indentLevel++;
+                materialEditor.ShaderProperty(FindProperty("_EnableDepthWrite", properties), "Write Depth");
+                materialEditor.ShaderProperty(FindProperty("_EnableSceneDepthClip", properties), "Clip Against Scene Depth");
                 EditorGUI.indentLevel--;
             }
 

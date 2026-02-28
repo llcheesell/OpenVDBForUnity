@@ -7,6 +7,8 @@ struct oiConfig
 {
     float scale_factor = 1.0f;
     int max_texture_size = 0;
+    float fixed_min_value = 0.0f;
+    float fixed_max_value = 0.0f;
 };
 
 struct oiVolumeSummary

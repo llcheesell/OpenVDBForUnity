@@ -6,8 +6,8 @@ Unity plugin for importing and rendering [OpenVDB](http://www.openvdb.org/) volu
 
 ## Requirements
 
-- Unity 2022.3 LTS or later
-- **HDRP 14.x** (High Definition Render Pipeline) or Built-in Render Pipeline
+- Unity 6 (6000.x) or later
+- **HDRP 17.x** (High Definition Render Pipeline) or Built-in Render Pipeline
 
 ## Supported Platforms
 
@@ -21,7 +21,7 @@ Unity plugin for importing and rendering [OpenVDB](http://www.openvdb.org/) volu
 
 ### 1. Open the project
 
-Open the `OpenVDBForUnity/` folder in Unity 2022.3 or later. Prebuilt native plugins for Windows and Linux are included in the repository.
+Open the `OpenVDBForUnity/` folder in Unity 6 or later. Prebuilt native plugins for Windows and Linux are included in the repository.
 
 ### 2. Import a VDB file
 
@@ -35,39 +35,60 @@ Open the `OpenVDBForUnity/` folder in Unity 2022.3 or later. Prebuilt native plu
 
 Open `Assets/Scenes/Test.unity` or create a new scene. Drag the imported VDB asset into the scene. The volume is rendered using ray marching.
 
+## Unified Volume Component
+
+The `OpenVDBVolume` component is the single entry point for all volume rendering. It supports switching between **Classic** and **Realtime** rendering modes from a dropdown in the Inspector.
+
+### Render Modes
+
+| Mode | Description | Best For |
+|------|-------------|----------|
+| **Realtime** (default) | Optimized ray marching with occupancy grid, adaptive stepping, temporal jitter, and HG phase function | Interactive / real-time applications |
+| **Classic** | Traditional ray marching with HDRP light buffer integration | Offline / highest-fidelity rendering |
+
+When switching modes, the component automatically applies the correct shader and shows only the relevant parameters in the Inspector.
+
+### Shared Features (both modes)
+
+All features are keyword-gated via `shader_feature_local` for zero GPU cost when disabled.
+
+| Feature | Description |
+|---------|-------------|
+| **Directional Light** | Beer-Lambert shadow marching along light direction |
+| **Ambient Light** | Configurable ambient color and density |
+| **Light Influence** | Multiplier for directional and ambient light contribution |
+| **Color Ramp** | Gradient-based density-to-color mapping (baked to 256x1 texture) |
+| **Spot Lights** | Up to 2 Unity Spot Lights with distance and cone attenuation |
+| **Shadow Casting** | Volume casts shadows onto other meshes (GPU-expensive) |
+| **Auto Sync Light** | Automatically reads main directional light direction and color |
+
+### Realtime-Only Features
+
+| Feature | Description |
+|---------|-------------|
+| **Quality Presets** | Low / Medium / High / Ultra / Custom presets |
+| **Empty Space Skipping** | Sparse occupancy grid for DDA traversal (compute shader) |
+| **Temporal Jitter** | Per-pixel noise on ray start for TAA integration |
+| **Adaptive Stepping** | Distance-based variable step size |
+| **Henyey-Greenstein Phase** | Anisotropic forward/back scattering |
+| **Multi-Scatter Approximation** | Powder effect for thin volumes |
+
+### Depth Options (HDRP)
+
+- **Write Depth** -- Writes the depth of the first voxel hit via `SV_Depth` for correct post-processing interaction.
+- **Clip Against Scene Depth** -- Stops rays at opaque geometry surfaces.
+
 ## Render Pipeline Support
 
 ### HDRP (Recommended)
 
-The `OpenVDB/HDRP/Standard` shader is designed for HDRP 14.x and provides:
-
-| Property | Description | Default |
-|----------|-------------|---------|
-| Volume | 3D texture from VDB data | - |
-| Intensity | Rendering intensity | 0.3 |
-| Step Distance | Ray march step size | 0.01 |
-| Shadow Steps | Shadow sampling steps | 32 |
-| Shadow Density | Shadow color | (0.4, 0.4, 0.4) |
-| Shadow Threshold | Shadow cutoff | 0.001 |
-| Ambient Color | Ambient light color | (0.4, 0.4, 0.5) |
-| Ambient Density | Ambient light strength | 0.2 |
-| Culling | Face culling mode | Off |
-| Enable Directional Light | Use directional lighting | On |
-| Enable Ambient Light | Use ambient lighting | On |
-| Auto HDRP Light | Read light data from HDRP buffer | On |
-| **Write Depth** | Write voxel-accurate depth via SV_Depth | On |
-| **Clip Against Scene Depth** | Stop rays at opaque geometry | On |
-
-#### Depth Options
-
-- **Write Depth (voxel-accurate)** -- Writes the depth of the first voxel hit to the depth buffer via `SV_Depth`. Required for correct interaction with post-processing effects (Depth of Field, fog, etc.).
-- **Clip Against Scene Depth** -- Reads the opaque depth buffer to stop volume ray marching at scene geometry surfaces. This prevents VDB volumes from rendering behind opaque objects like meshes and planes.
-
-Both options can be toggled independently from the material inspector.
+- **Realtime**: `OpenVDB/Realtime/HDRP` -- Full feature set including ShadowCaster pass
+- **Classic**: `OpenVDB/HDRP/Standard` -- HDRP light buffer integration
 
 ### Built-in Render Pipeline
 
-The `OpenVDB/Standard` shader provides basic volume rendering for the Built-in Render Pipeline.
+- **Realtime**: `OpenVDB/Realtime/Standard` -- Full feature set with `_LightColor0` integration
+- **Classic**: `OpenVDB/Standard` -- Volume rendering with ShadowCaster pass, Light/Ambient Influence
 
 ## Timeline / Sequence Playback
 
@@ -148,21 +169,51 @@ OpenVDBForUnity/
 │   └── Assets/
 │       └── OpenVDB/
 │           ├── Scripts/
+│           │   ├── OpenVDBVolume.cs  # Unified volume component (Classic + Realtime)
 │           │   ├── Importer/        # Runtime C# scripts (P/Invoke, mesh, texture)
-│           │   ├── HDRP/            # HDRP volume components
+│           │   ├── HDRP/            # HDRP-specific components (LocalVolumetricFog bridge)
+│           │   ├── Realtime/        # Realtime helpers (occupancy grid, quality presets)
 │           │   ├── Plugins/x86_64/  # Native plugin binaries
 │           │   ├── Sequence/        # VDB sequence player
 │           │   └── Timeline/        # Timeline integration
 │           ├── Editor/
+│           │   ├── OpenVDBVolumeEditor.cs  # Unified Inspector editor
 │           │   ├── Importer/        # ScriptedImporter for .vdb files
-│           │   ├── HDRP/            # HDRP shader GUI
+│           │   ├── HDRP/            # Classic HDRP shader GUI
+│           │   ├── Realtime/        # Realtime shader GUI
 │           │   └── Sequence/        # Sequence editor
 │           └── Shaders/
-│               ├── HDRP/            # HDRP volume ray marching shaders
-│               ├── VolumeStandard.shader  # Built-in RP shader
+│               ├── HDRP/            # Classic HDRP volume shaders
+│               ├── Realtime/        # Realtime volume shaders (HDRP + Standard)
+│               ├── VolumeStandard.shader  # Built-in RP Classic shader
 │               └── *.cginc          # Built-in RP shader includes
 └── THIRD_PARTY_LICENSES.md          # Licenses for bundled native DLLs
 ```
+
+## Migration from Old Components
+
+The legacy `OpenVDBHDRPVolume` and `OpenVDBRealtimeVolume` components have been removed. Use the unified `OpenVDBVolume` component instead:
+
+1. Add `OpenVDBVolume` component to your GameObject
+2. Select the desired **Render Mode** (Classic or Realtime)
+3. Assign your Volume Texture and configure parameters
+
+## Changelog
+
+### dev/feature-update (latest)
+
+- **Unified Architecture** -- Merged Classic and Realtime renderers into a single `OpenVDBVolume` component with shared feature set and per-mode Inspector UI
+- **Cross-Pipeline Spot Lights** -- Up to 2 spot lights with smooth quadratic distance falloff and cone attenuation, working on both HDRP and Built-in RP
+- **Standard RP Light Color** -- Realtime shader now reads `_LightColor0` from Unity's forward rendering pipeline instead of hardcoded white
+- **HDRP Compatibility** -- Uses `UNITY_MATRIX_M` for object-to-world transforms, compatible with both HDRP and Built-in RP shader compilation
+- **Keyword-Gated Features** -- All shared features use `shader_feature_local` for zero GPU cost when disabled
+- **Shadow Casting** -- Volumes cast shadows via dedicated ShadowCaster passes on all render pipelines, with configurable density threshold to prevent bounding-box artifacts
+- **Color Ramp** -- Gradient-based density-to-color mapping baked to a 256x1 lookup texture
+- **Quality Presets** -- Low / Medium / High / Ultra presets with one-click configuration
+- **Empty Space Skipping** -- Compute-shader-generated occupancy grid with DDA traversal for fast sparse volume rendering
+- **Legacy Cleanup** -- Removed deprecated `OpenVDBHDRPVolume`, `OpenVDBRealtimeVolume`, and orphaned prototype components (BrickMap, TemporalReprojection)
+- **Classic Standard RP** -- Added Light Influence / Ambient Influence uniforms and ShadowCaster pass
+- **Refactoring** -- Cached light lookups, deduplicated spot light sync and occupancy grid generation
 
 ## License
 

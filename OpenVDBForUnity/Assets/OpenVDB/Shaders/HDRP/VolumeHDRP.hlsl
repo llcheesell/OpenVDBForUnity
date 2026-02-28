@@ -25,6 +25,10 @@ half _ShadowThreshold;
 half3 _ShadowDensity;
 float _StepDistance;
 
+// Light influence
+float _LightInfluence;
+float _AmbientInfluence;
+
 #ifdef ENABLE_AMBIENT_LIGHT
 half3 _AmbientColor;
 float _AmbientDensity;
@@ -34,6 +38,50 @@ float _AmbientDensity;
 float3 _MainLightDir;
 float3 _MainLightColor;
 float _UseHDRPLightData;
+
+// Color ramp
+#ifdef ENABLE_COLOR_RAMP
+TEXTURE2D(_ColorRamp);
+SAMPLER(sampler_ColorRamp);
+float _ColorRampIntensity;
+#endif
+
+// Spot lights (manual uniforms, max 2)
+#ifdef ENABLE_SPOT_LIGHTS
+float3 _SpotLight0_Position;
+float3 _SpotLight0_Direction;
+float3 _SpotLight0_Color;
+float4 _SpotLight0_Params; // range, angleScale, angleOffset, intensity
+float3 _SpotLight1_Position;
+float3 _SpotLight1_Direction;
+float3 _SpotLight1_Color;
+float4 _SpotLight1_Params;
+float _SpotLightCount;
+float _SpotLightInfluence;
+
+float ComputeSpotAttenuation(float3 worldPos, float3 lightPos, float3 lightDir, float4 params)
+{
+    float range = params.x;
+    float angleScale = params.y;
+    float angleOffset = params.z;
+
+    float3 toLight = lightPos - worldPos;
+    float dist = length(toLight);
+    float3 L = toLight / max(dist, 0.0001);
+
+    // Distance attenuation (smooth quadratic falloff)
+    float distNorm = saturate(dist / max(range, 0.0001));
+    float distAtten = 1.0 - distNorm;
+    distAtten *= distAtten;
+
+    // Cone attenuation
+    float cosAngle = dot(lightDir, -L);
+    float coneAtten = saturate(cosAngle * angleScale + angleOffset);
+    coneAtten *= coneAtten;
+
+    return distAtten * coneAtten;
+}
+#endif
 
 float SampleVolume(float3 uv)
 {
@@ -201,6 +249,17 @@ FragOutput Frag(Varyings input)
                 depthtest = false;
             }
 
+            // Color ramp lookup
+            float3 rampColor = 1.0;
+            float rampAlpha = 1.0;
+            #ifdef ENABLE_COLOR_RAMP
+            {
+                float4 rampSample = SAMPLE_TEXTURE2D_LOD(_ColorRamp, sampler_ColorRamp, float2(cursample, 0.5), 0);
+                rampColor = rampSample.rgb * _ColorRampIntensity;
+                rampAlpha = rampSample.a;
+            }
+            #endif
+
             #ifdef ENABLE_DIRECTIONAL_LIGHT
             [loop]
             for (int s = 0; s < _ShadowSteps; s++)
@@ -221,10 +280,10 @@ FragOutput Frag(Varyings input)
             }
             #endif
 
-            curdensity = saturate(cursample * _Intensity);
+            curdensity = saturate(cursample * _Intensity * rampAlpha);
             float3 shadowterm = exp(-shadowdist * shadowDensity);
             float3 absorbedlight = shadowterm * curdensity;
-            lightenergy += absorbedlight * transmittance;
+            lightenergy += absorbedlight * lightColor * _LightInfluence * rampColor * transmittance;
             transmittance *= 1 - curdensity;
 
             #ifdef ENABLE_AMBIENT_LIGHT
@@ -236,7 +295,37 @@ FragOutput Frag(Varyings input)
             shadowdist += SampleVolume(saturate(luv2));
             luv2 = sampleUV + float3(0, 0, 0.2);
             shadowdist += SampleVolume(saturate(luv2));
-            lightenergy += exp(-shadowdist * _AmbientDensity) * curdensity * _AmbientColor * transmittance;
+            lightenergy += exp(-shadowdist * _AmbientDensity) * curdensity * _AmbientColor * _AmbientInfluence * rampColor * transmittance;
+            #endif
+
+            // Spot lights
+            #ifdef ENABLE_SPOT_LIGHTS
+            if (_SpotLightCount > 0)
+            {
+                // World position of current sample
+                float3 sampleWS = TransformObjectToWorld(p);
+
+                // Spot light 0
+                {
+                    float atten = ComputeSpotAttenuation(sampleWS, _SpotLight0_Position, _SpotLight0_Direction, _SpotLight0_Params);
+                    if (atten > 0.001)
+                    {
+                        float3 spotContrib = curdensity * _SpotLight0_Color * _SpotLight0_Params.w * atten * _SpotLightInfluence * rampColor;
+                        lightenergy += spotContrib * transmittance;
+                    }
+                }
+
+                // Spot light 1
+                if (_SpotLightCount > 1)
+                {
+                    float atten = ComputeSpotAttenuation(sampleWS, _SpotLight1_Position, _SpotLight1_Direction, _SpotLight1_Params);
+                    if (atten > 0.001)
+                    {
+                        float3 spotContrib = curdensity * _SpotLight1_Color * _SpotLight1_Params.w * atten * _SpotLightInfluence * rampColor;
+                        lightenergy += spotContrib * transmittance;
+                    }
+                }
+            }
             #endif
         }
         p += ds;

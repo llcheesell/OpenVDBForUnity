@@ -76,7 +76,7 @@ inline openvdb::CoordBBox getIndexSpaceBoundingBox(const openvdb::GridBase& grid
 }
 
 template <typename SamplingFunc, typename RealType>
-bool sampleVolume( const openvdb::Coord& extents, SamplingFunc sampling_func, FloatRange& out_value_range, RealType* out_samples)
+bool sampleVolume( const openvdb::Coord& extents, SamplingFunc sampling_func, FloatRange& out_value_range, RealType* out_samples, const FloatRange* fixed_range = nullptr)
 {
     const auto domain = openvdb::CoordBBox(openvdb::Coord(0, 0, 0), extents - openvdb::Coord(1, 1, 1));
     if (domain.empty())
@@ -126,14 +126,18 @@ bool sampleVolume( const openvdb::Coord& extents, SamplingFunc sampling_func, Fl
         out_value_range.addValue(per_thread_range.getMax());
     }
 
-    // Remap sample values to [0, 1].
+    // Use fixed range for normalization if provided, otherwise use detected range
+    const FloatRange& norm_range = (fixed_range && fixed_range->getMax() > fixed_range->getMin()) ? *fixed_range : out_value_range;
+
+    // Remap sample values to [0, 1] and clamp.
     int size = num_voxels * 4;
     typedef tbb::blocked_range<size_t> tbb_range;
-    tbb::parallel_for(tbb_range(0, size), [out_samples, &out_value_range](const tbb_range& range)
+    tbb::parallel_for(tbb_range(0, size), [out_samples, &norm_range](const tbb_range& range)
     {
         for (auto i = range.begin(); i < range.end(); ++i)
         {
-            out_samples[i] = unlerp( out_value_range.getMin(), out_value_range.getMax(), out_samples[i]);
+            float val = unlerp( norm_range.getMin(), norm_range.getMax(), out_samples[i]);
+            out_samples[i] = std::max(0.0f, std::min(1.0f, val));
         }
     });
 
@@ -146,7 +150,8 @@ bool sampleGrid(
         const openvdb::Coord& sampling_extents,
         FloatRange& value_range,
         openvdb::Vec3d& scale,
-        RealType* out_data)
+        RealType* out_data,
+        const FloatRange* fixed_range = nullptr)
 {
     assert(out_data);
 
@@ -170,7 +175,7 @@ bool sampleGrid(
         return sampler.wsSample(sample_pos_ws);
     };
 
-    return sampleVolume( sampling_extents, sampling_func, value_range, out_data);
+    return sampleVolume( sampling_extents, sampling_func, value_range, out_data, fixed_range);
 }
 
 oiVolume::oiVolume(const openvdb::FloatGrid& grid, const openvdb::Coord& extents)
@@ -198,6 +203,12 @@ void oiVolume::setScaleFactor(float scaleFactor)
     m_scaleFactor = scaleFactor;
 }
 
+void oiVolume::setNormalizationRange(float minVal, float maxVal)
+{
+    m_fixedMin = minVal;
+    m_fixedMax = maxVal;
+}
+
 void oiVolume::fillTextureBuffer(oiVolumeData& data) const
 {
     DebugLog("oiVolume::fillTextureBuffer start");
@@ -210,9 +221,19 @@ void oiVolume::fillTextureBuffer(oiVolumeData& data) const
 
     openvdb::Coord extents{m_summary->width, m_summary->height, m_summary->depth};
 
+    // Build fixed range if set (max > min)
+    const FloatRange* fixed_range_ptr = nullptr;
+    FloatRange fixed_range;
+    if (m_fixedMax > m_fixedMin)
+    {
+        fixed_range = FloatRange(m_fixedMin, m_fixedMax);
+        fixed_range_ptr = &fixed_range;
+        DebugLog("Using fixed normalization range: [%f, %f]", m_fixedMin, m_fixedMax);
+    }
+
     FloatRange value_range;
     openvdb::Vec3d scale;
-    sampleGrid(m_grid, extents, value_range, scale, (float*)data.voxels);
+    sampleGrid(m_grid, extents, value_range, scale, (float*)data.voxels, fixed_range_ptr);
     m_summary->min_value = value_range.getMin();
     m_summary->max_value = value_range.getMax();
 

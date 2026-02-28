@@ -13,8 +13,10 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - ENABLE_AMBIENT_LIGHT
+  - ENABLE_DEPTH_WRITE
   - ENABLE_DIRECTIONAL_LIGHT
   - ENABLE_HDRP_LIGHT_DATA
+  - ENABLE_TRACE_DISTANCE_LIMITED
   m_InvalidKeywords:
   - _CULL_OFF
   m_LightmapFlags: 4
@@ -37,8 +39,10 @@ Material:
     - _AmbientDensity: 0.2
     - _Cull: 0
     - _EnableAmbientLight: 1
+    - _EnableDepthWrite: 1
     - _EnableDirectionalLight: 1
     - _EnableHDRPLightData: 1
+    - _EnableSceneDepthClip: 1
     - _Intensity: 0.3
     - _ShadowSteps: 32
     - _ShadowThreshold: 0.001

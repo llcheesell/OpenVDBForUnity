@@ -14,7 +14,7 @@ namespace OpenVDB
         static bool s_initialized;
 
         private GameObject m_go;
-        private OpenVDBVolume m_volume;
+        private OpenVDBVolumeData m_volume;
         private OpenVDBStreamDescriptor m_streamDescriptor;
         
         public GameObject gameObject { get { return m_go; } }
@@ -67,7 +67,7 @@ namespace OpenVDB
 
         void UpdateVDB(oiContext context)
         {
-            m_volume = new OpenVDBVolume(context.volume);
+            m_volume = new OpenVDBVolumeData(context.volume);
             m_volume.SyncDataBegin();
             m_volume.texture3D.name = m_go.name;
             

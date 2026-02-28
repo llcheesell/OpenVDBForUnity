@@ -4,15 +4,20 @@ using System.Runtime.InteropServices;
 namespace OpenVDB
 {
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct oiConfig
     {
         public float scaleFactor;
         public int textureMaxSize;
+        public float fixedMinValue;
+        public float fixedMaxValue;
 
         public void SetDefaults()
         {
             scaleFactor = 0.01f;
             textureMaxSize = 0;
+            fixedMinValue = 0.0f;
+            fixedMaxValue = 0.0f;
         }
     }
 

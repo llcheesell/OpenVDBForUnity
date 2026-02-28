@@ -1,27 +1,24 @@
-#ifndef __VOLUME_HDRP_SHADOWCASTER_INCLUDED__
-#define __VOLUME_HDRP_SHADOWCASTER_INCLUDED__
+// VolumeRealtimeShadowCaster.hlsl
+// Shadow caster pass for Realtime volume rendering.
+// Uses VolumeRealtimeCommon.hlsl structures (VolumeRay, VolumeAABB, IntersectBox, VolumeUV).
+#ifndef __VOLUME_REALTIME_SHADOWCASTER_INCLUDED__
+#define __VOLUME_REALTIME_SHADOWCASTER_INCLUDED__
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/ShaderVariables.hlsl"
 
-#include "VolumeHDRPCamera.hlsl"
-#include "VolumeHDRPUtils.hlsl"
+#include "VolumeRealtimeCommon.hlsl"
 
-#ifndef ITERATIONS
-#define ITERATIONS 100
+#ifndef MAX_SHADOW_MARCH_STEPS
+#define MAX_SHADOW_MARCH_STEPS 100
 #endif
 
-TEXTURE3D(_Volume);
-SAMPLER(sampler_Volume);
+Texture3D<float> _Volume;
+SamplerState sampler_Volume;
 
 float _StepDistance;
 float _ShadowExtraBias;
 float _ShadowDensityThreshold;
-
-float SampleVolumeShadow(float3 uv)
-{
-    return SAMPLE_TEXTURE3D_LOD(_Volume, sampler_Volume, uv, 0).r;
-}
 
 struct Attributes
 {
@@ -54,18 +51,19 @@ void FragShadow(Varyings input, out float4 outColor : SV_Target, out float outDe
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-    Ray ray;
-    ray.origin = LocalizePosition(input.positionWS, UNITY_MATRIX_I_M);
+    VolumeRay ray;
+    ray.origin = mul(UNITY_MATRIX_I_M, float4(input.positionWS, 1)).xyz;
 
     // Light direction from view matrix (shadow pass renders from light's perspective)
     float3 lightDir = -UNITY_MATRIX_V[2].xyz;
     ray.dir = normalize(mul((float3x3)UNITY_MATRIX_I_M, lightDir));
 
-    AABB aabb;
+    VolumeAABB aabb;
     aabb.bmin = float3(-0.5, -0.5, -0.5);
     aabb.bmax = float3(0.5, 0.5, 0.5);
 
-    float tfar = IntersectAABB(ray, aabb);
+    float2 tHit = IntersectBox(ray, aabb);
+    float tfar = tHit.y;
 
     float3 start = ray.origin;
     float3 end = ray.origin + ray.dir * tfar;
@@ -79,10 +77,10 @@ void FragShadow(Varyings input, out float4 outColor : SV_Target, out float outDe
     bool found = false;
 
     [loop]
-    for (int iter = 0; iter < ITERATIONS; iter++)
+    for (int iter = 0; iter < MAX_SHADOW_MARCH_STEPS; iter++)
     {
-        float3 uv = GetUV(p);
-        float cursample = SampleVolumeShadow(uv);
+        float3 uv = VolumeUV(p);
+        float cursample = _Volume.SampleLevel(sampler_Volume, uv, 0).r;
 
         if (cursample > _ShadowDensityThreshold)
         {
@@ -111,4 +109,4 @@ void FragShadow(Varyings input, out float4 outColor : SV_Target, out float outDe
     outColor = outDepth = depthCS.z / depthCS.w;
 }
 
-#endif
+#endif // __VOLUME_REALTIME_SHADOWCASTER_INCLUDED__

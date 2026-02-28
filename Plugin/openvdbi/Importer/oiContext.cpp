@@ -189,6 +189,7 @@ bool oiContext::load(const char *in_path)
     }
     m_volume = new oiVolume(*m_grid, m_extents);
     m_volume->setScaleFactor(m_config.scale_factor);
+    m_volume->setNormalizationRange(m_config.fixed_min_value, m_config.fixed_max_value);
     return true;
 }
 

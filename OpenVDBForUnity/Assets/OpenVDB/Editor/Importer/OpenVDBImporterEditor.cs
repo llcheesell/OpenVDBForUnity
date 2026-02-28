@@ -53,6 +53,20 @@ namespace OpenVDB
             if(importer == null)
                 throw new InvalidOperationException();
 
+            // Render Mode selector
+            {
+                var renderModeProp = serializedObject.FindProperty(pathSettings + "renderMode");
+                if (renderModeProp != null)
+                {
+                    EditorGUILayout.LabelField("Rendering", EditorStyles.boldLabel);
+                    EditorGUILayout.PropertyField(renderModeProp,
+                        new GUIContent("Render Mode",
+                            "Classic: Original ray marching shader.\n" +
+                            "Realtime: Optimized pipeline with empty space skipping, temporal jitter, adaptive stepping, and HG phase function."));
+                    EditorGUILayout.Space();
+                }
+            }
+
             _toolbar = GUILayout.Toolbar( _toolbar,new []{ "Model", "Material" } );
 
             switch (_toolbar)

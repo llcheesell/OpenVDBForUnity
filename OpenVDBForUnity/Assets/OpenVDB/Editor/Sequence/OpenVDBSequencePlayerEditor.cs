@@ -17,6 +17,9 @@ namespace OpenVDB.Editor
         SerializedProperty m_preloadCount;
         SerializedProperty m_textureMaxSize;
         SerializedProperty m_scaleFactor;
+        SerializedProperty m_useFixedDensityRange;
+        SerializedProperty m_fixedMinDensity;
+        SerializedProperty m_fixedMaxDensity;
 
         void OnEnable()
         {
@@ -31,6 +34,9 @@ namespace OpenVDB.Editor
             m_preloadCount = serializedObject.FindProperty("m_preloadCount");
             m_textureMaxSize = serializedObject.FindProperty("m_textureMaxSize");
             m_scaleFactor = serializedObject.FindProperty("m_scaleFactor");
+            m_useFixedDensityRange = serializedObject.FindProperty("m_useFixedDensityRange");
+            m_fixedMinDensity = serializedObject.FindProperty("m_fixedMinDensity");
+            m_fixedMaxDensity = serializedObject.FindProperty("m_fixedMaxDensity");
         }
 
         public override void OnInspectorGUI()
@@ -86,42 +92,94 @@ namespace OpenVDB.Editor
 
             EditorGUILayout.Space();
 
-            // Runtime info
-            if (Application.isPlaying && player != null)
+            // Density Normalization
+            EditorGUILayout.LabelField("Density Normalization", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(m_useFixedDensityRange, new GUIContent("Use Fixed Range"));
+            if (m_useFixedDensityRange.boolValue)
             {
-                EditorGUILayout.LabelField("Runtime", EditorStyles.boldLabel);
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(m_fixedMinDensity, new GUIContent("Min Density"));
+                EditorGUILayout.PropertyField(m_fixedMaxDensity, new GUIContent("Max Density"));
+                EditorGUI.indentLevel--;
+
+                if (player != null && GUILayout.Button("Auto-Detect Range (Scan All Frames)"))
+                {
+                    serializedObject.ApplyModifiedProperties();
+                    player.ScanGlobalDensityRange();
+                    serializedObject.Update();
+                }
+
+                EditorGUILayout.HelpBox(
+                    "Fixed range ensures consistent brightness across all frames.\n" +
+                    "Use 'Auto-Detect' to scan all frames and find the global min/max.",
+                    MessageType.Info);
+            }
+
+            EditorGUILayout.Space();
+
+            // Preview & Runtime controls
+            if (player != null)
+            {
+                EditorGUILayout.LabelField("Preview / Runtime", EditorStyles.boldLabel);
+
                 EditorGUI.BeginDisabledGroup(true);
                 EditorGUILayout.IntField("Total Frames", player.frameCount);
                 EditorGUILayout.IntField("Current Frame", player.currentFrame);
-                EditorGUILayout.Toggle("Playing", player.isPlaying);
+                if (Application.isPlaying)
+                    EditorGUILayout.Toggle("Playing", player.isPlaying);
                 EditorGUI.EndDisabledGroup();
 
                 EditorGUILayout.Space();
 
+                if (Application.isPlaying)
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    if (GUILayout.Button(player.isPlaying ? "Pause" : "Play"))
+                    {
+                        if (player.isPlaying)
+                            player.Pause();
+                        else
+                            player.Play();
+                    }
+                    if (GUILayout.Button("Stop"))
+                    {
+                        player.Stop();
+                    }
+                    EditorGUILayout.EndHorizontal();
+                }
+
+                // Frame scrubber (works in both Edit and Play mode)
+                if (player.frameCount > 0)
+                {
+                    var newFrame = EditorGUILayout.IntSlider("Scrub Frame", player.currentFrame, 0,
+                        Mathf.Max(0, player.frameCount - 1));
+                    if (newFrame != player.currentFrame)
+                    {
+                        player.currentFrame = newFrame;
+                    }
+                }
+
+                EditorGUILayout.Space();
+
                 EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button(player.isPlaying ? "Pause" : "Play"))
+                if (GUILayout.Button("Reload"))
                 {
-                    if (player.isPlaying)
-                        player.Pause();
-                    else
-                        player.Play();
+                    player.RefreshFiles();
                 }
-                if (GUILayout.Button("Stop"))
-                {
-                    player.Stop();
-                }
-                EditorGUILayout.EndHorizontal();
-
-                var newFrame = EditorGUILayout.IntSlider("Scrub Frame", player.currentFrame, 0,
-                    Mathf.Max(0, player.frameCount - 1));
-                if (newFrame != player.currentFrame)
-                {
-                    player.currentFrame = newFrame;
-                }
-
                 if (GUILayout.Button("Clear Cache"))
                 {
                     player.ClearCache();
+                }
+                EditorGUILayout.EndHorizontal();
+
+                if (player.frameCount == 0)
+                {
+                    EditorGUILayout.HelpBox(
+                        "No VDB files found. Check that:\n" +
+                        "- Files exist in StreamingAssets/<directory>\n" +
+                        "- File pattern matches (default: *.vdb)\n" +
+                        "Click 'Reload' after changing settings.",
+                        MessageType.Warning);
                 }
             }
 
