@@ -68,9 +68,9 @@ float ComputeSpotAttenuation(float3 worldPos, float3 lightPos, float3 lightDir, 
     float dist = length(toLight);
     float3 L = toLight / max(dist, 0.0001);
 
-    // Distance attenuation (smooth inverse square)
-    float distNorm = dist / max(range, 0.0001);
-    float distAtten = saturate(1.0 - distNorm * distNorm);
+    // Distance attenuation (smooth quadratic falloff)
+    float distNorm = saturate(dist / max(range, 0.0001));
+    float distAtten = 1.0 - distNorm;
     distAtten *= distAtten;
 
     // Cone attenuation

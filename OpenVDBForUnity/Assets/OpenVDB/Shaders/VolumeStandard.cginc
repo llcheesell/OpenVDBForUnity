@@ -21,9 +21,12 @@ half _ShadowThreshold;
 half3 _ShadowDensity;
 float _StepDistance;
 
+float _LightInfluence;
+
 #ifdef ENABLE_AMBIENT_LIGHT
 half3 _AmbientColor;
 float _AmbientDensity;
+float _AmbientInfluence;
 #endif
 
 float SampleVolume(float3 uv)
@@ -178,7 +181,7 @@ fragOutput frag(v2f i)
             curdensity = saturate(cursample * _Intensity);
             float3 shadowterm = exp(-shadowdist * shadowDensity);
             float3 absorbedlight = shadowterm * curdensity;
-            lightenergy += absorbedlight * transmittance;
+            lightenergy += absorbedlight * transmittance * _LightInfluence;
             transmittance *= 1-curdensity;
 
             #ifdef ENABLE_AMBIENT_LIGHT
@@ -190,7 +193,7 @@ fragOutput frag(v2f i)
             shadowdist += SampleVolume(saturate(luv));
             luv = uv + float3(0,0,0.2);
             shadowdist += SampleVolume(saturate(luv));
-            lightenergy += exp(-shadowdist * _AmbientDensity) * curdensity * _AmbientColor * transmittance;
+            lightenergy += exp(-shadowdist * _AmbientDensity) * curdensity * _AmbientColor * transmittance * _AmbientInfluence;
             #endif
         }
         p += ds;

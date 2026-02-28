@@ -10,6 +10,10 @@ Shader "OpenVDB/Standard"
         _ShadowThreshold ("ShadowThreshold", Range(0.001, 0.1)) = 0.001
         _AmbientColor ("AmbientColor", Color) = (0.4, 0.4, 0.5, 1)
         _AmbientDensity ("AmbientDensity", Range(0, 1)) = 0.2
+        _LightInfluence ("LightInfluence", Range(0, 2)) = 1.0
+        _AmbientInfluence ("AmbientInfluence", Range(0, 2)) = 1.0
+        _ShadowDensityThreshold ("ShadowDensityThreshold", Range(0.001, 0.1)) = 0.01
+        _ShadowExtraBias ("ShadowExtraBias", Range(0, 0.1)) = 0.01
         [KeywordEnum(Off, Front, Back)] _Cull("Culling", Int) = 0
     }
 
@@ -49,6 +53,25 @@ Shader "OpenVDB/Standard"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fwdbase
+            ENDCG
+        }
+
+        Pass
+        {
+            Tags
+            {
+                "LightMode"="ShadowCaster"
+            }
+
+            ZWrite On
+            ZTest LEqual
+
+            CGPROGRAM
+
+            #include "./VolumeShadowCaster.cginc"
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_shadowcaster
             ENDCG
         }
     }

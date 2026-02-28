@@ -12,6 +12,7 @@
 uniform sampler3D _Volume;
 float _StepDistance;
 float _ShadowExtraBias = 0.01;
+float _ShadowDensityThreshold;
 
 inline float3 DecodeNormal(float3 normal)
 {
@@ -111,6 +112,7 @@ void frag(v2f i, out float4 outColor : SV_Target, out float outDepth : SV_Depth)
 
     float3 p = start;
     float3 depth = end;
+    bool found = false;
 
     [loop]
     for (int iter = 0; iter < ITERATIONS; iter++)
@@ -119,19 +121,17 @@ void frag(v2f i, out float4 outColor : SV_Target, out float outDepth : SV_Depth)
         float3 uv = GetUV(p);
         float cursample = SampleVolume(uv);
 
-        if(cursample > 0.01)
+        if(cursample > _ShadowDensityThreshold)
         {
             depth = p;
+            found = true;
             break;
         }
         p += ds;
 
-        if(iter >= stepCount)
-        {
-            clip(-1);
-            break;
-        }
+        if(iter >= stepCount) break;
     }
+    if (!found) clip(-1);
 
     float4 opos = UnityClipSpaceShadowCasterPos(depth, i.normal);
     opos = UnityApplyLinearShadowBias(opos);

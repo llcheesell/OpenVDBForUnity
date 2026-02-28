@@ -74,6 +74,7 @@ void FragShadow(Varyings input, out float4 outColor : SV_Target, out float outDe
 
     float3 p = start;
     float3 depth = end;
+    bool found = false;
 
     [loop]
     for (int iter = 0; iter < MAX_SHADOW_MARCH_STEPS; iter++)
@@ -84,16 +85,14 @@ void FragShadow(Varyings input, out float4 outColor : SV_Target, out float outDe
         if (cursample > _ShadowDensityThreshold)
         {
             depth = p;
+            found = true;
             break;
         }
         p += ds;
 
-        if (iter >= stepCount)
-        {
-            clip(-1);
-            break;
-        }
+        if (iter >= stepCount) break;
     }
+    if (!found) clip(-1);
 
     float3 depthWS = TransformObjectToWorld(depth);
     float4 depthCS = TransformWorldToHClip(depthWS);
