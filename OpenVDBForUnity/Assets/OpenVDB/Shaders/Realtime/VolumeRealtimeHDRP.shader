@@ -169,6 +169,7 @@ Shader "OpenVDB/Realtime/HDRP"
             float3 _MainLightColor;
             float _LightInfluence;
             float _AmbientInfluence;
+            float _SpotLightInfluence;
 
             // Temporal
             float _FrameIndex;

@@ -146,6 +146,7 @@ Shader "OpenVDB/Realtime/Standard"
             float _MaxStepDistance;
             float _LightInfluence;
             float _AmbientInfluence;
+            float _SpotLightInfluence;
 
             // Temporal
             float _FrameIndex;
