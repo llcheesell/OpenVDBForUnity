@@ -47,6 +47,7 @@ Shader "OpenVDB/Realtime/HDRP"
         _SpotLight1_Color ("Spot Light 1 Color", Color) = (1, 1, 1, 1)
         _SpotLight1_Params ("Spot Light 1 Params (range, angleScale, angleOffset, intensity)", Vector) = (10, 1, 0, 1)
         _SpotLightCount ("Spot Light Count", Float) = 0
+        _SpotLightInfluence ("Spot Light Influence", Range(0, 5)) = 1.0
 
         [Header(Shadow Casting)]
         _ShadowExtraBias ("Shadow Extra Bias", Range(-0.1, 0.1)) = 0.0
@@ -298,6 +299,7 @@ Shader "OpenVDB/Realtime/HDRP"
                 params.maxStepDistance = _MaxStepDistance;
                 params.lightInfluence = _LightInfluence;
                 params.ambientInfluence = _AmbientInfluence;
+                params.spotLightInfluence = _SpotLightInfluence;
 
                 #ifdef ENABLE_TEMPORAL_JITTER
                 params.temporalOffset = TemporalNoise(input.positionCS.xy, _FrameIndex);

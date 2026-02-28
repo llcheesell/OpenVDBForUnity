@@ -30,6 +30,7 @@ namespace OpenVDB.Editor
         SerializedProperty m_colorRampIntensity;
         SerializedProperty m_enableSpotLights;
         SerializedProperty m_spotLights;
+        SerializedProperty m_spotLightInfluence;
         SerializedProperty m_enableShadowCasting;
         SerializedProperty m_shadowExtraBias;
         SerializedProperty m_shadowDensityThreshold;
@@ -90,6 +91,7 @@ namespace OpenVDB.Editor
             m_colorRampIntensity = serializedObject.FindProperty("m_colorRampIntensity");
             m_enableSpotLights = serializedObject.FindProperty("m_enableSpotLights");
             m_spotLights = serializedObject.FindProperty("m_spotLights");
+            m_spotLightInfluence = serializedObject.FindProperty("m_spotLightInfluence");
             m_enableShadowCasting = serializedObject.FindProperty("m_enableShadowCasting");
             m_shadowExtraBias = serializedObject.FindProperty("m_shadowExtraBias");
             m_shadowDensityThreshold = serializedObject.FindProperty("m_shadowDensityThreshold");
@@ -276,8 +278,10 @@ namespace OpenVDB.Editor
                 if (m_enableSpotLights.boolValue)
                 {
                     EditorGUILayout.PropertyField(m_spotLights, new GUIContent("Lights (max 2)"), true);
+                    EditorGUILayout.PropertyField(m_spotLightInfluence, new GUIContent("Spot Light Influence"));
                     EditorGUILayout.HelpBox(
-                        "Assign up to 2 Unity Spot Lights. Parameters are synced automatically.",
+                        "Assign up to 2 Unity Spot Lights. Parameters are synced automatically.\n" +
+                        "Spot Light Influence controls brightness independently from directional Light Influence.",
                         MessageType.Info);
                 }
                 EditorGUI.indentLevel--;

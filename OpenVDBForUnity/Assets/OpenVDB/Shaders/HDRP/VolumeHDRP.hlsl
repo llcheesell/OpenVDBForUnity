@@ -57,6 +57,7 @@ float3 _SpotLight1_Direction;
 float3 _SpotLight1_Color;
 float4 _SpotLight1_Params;
 float _SpotLightCount;
+float _SpotLightInfluence;
 
 float ComputeSpotAttenuation(float3 worldPos, float3 lightPos, float3 lightDir, float4 params)
 {
@@ -309,7 +310,7 @@ FragOutput Frag(Varyings input)
                     float atten = ComputeSpotAttenuation(sampleWS, _SpotLight0_Position, _SpotLight0_Direction, _SpotLight0_Params);
                     if (atten > 0.001)
                     {
-                        float3 spotContrib = curdensity * _SpotLight0_Color * _SpotLight0_Params.w * atten * _LightInfluence * rampColor;
+                        float3 spotContrib = curdensity * _SpotLight0_Color * _SpotLight0_Params.w * atten * _SpotLightInfluence * rampColor;
                         lightenergy += spotContrib * transmittance;
                     }
                 }
@@ -320,7 +321,7 @@ FragOutput Frag(Varyings input)
                     float atten = ComputeSpotAttenuation(sampleWS, _SpotLight1_Position, _SpotLight1_Direction, _SpotLight1_Params);
                     if (atten > 0.001)
                     {
-                        float3 spotContrib = curdensity * _SpotLight1_Color * _SpotLight1_Params.w * atten * _LightInfluence * rampColor;
+                        float3 spotContrib = curdensity * _SpotLight1_Color * _SpotLight1_Params.w * atten * _SpotLightInfluence * rampColor;
                         lightenergy += spotContrib * transmittance;
                     }
                 }

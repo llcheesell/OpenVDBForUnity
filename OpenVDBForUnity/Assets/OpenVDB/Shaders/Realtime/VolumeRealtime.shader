@@ -45,6 +45,7 @@ Shader "OpenVDB/Realtime/Standard"
         _SpotLight1_Color ("Spot Light 1 Color", Color) = (1, 1, 1, 1)
         _SpotLight1_Params ("Spot Light 1 Params", Vector) = (10, 1, 0, 1)
         _SpotLightCount ("Spot Light Count", Float) = 0
+        _SpotLightInfluence ("Spot Light Influence", Range(0, 5)) = 1.0
 
         [Header(Features)]
         [Toggle(ENABLE_OCCUPANCY_SKIP)] _EnableOccupancySkip("Empty Space Skipping", Float) = 1
@@ -240,6 +241,7 @@ Shader "OpenVDB/Realtime/Standard"
                 params.maxStepDistance = _MaxStepDistance;
                 params.lightInfluence = _LightInfluence;
                 params.ambientInfluence = _AmbientInfluence;
+                params.spotLightInfluence = _SpotLightInfluence;
 
                 #ifdef ENABLE_TEMPORAL_JITTER
                 params.temporalOffset = TemporalNoise(i.vertex.xy, _FrameIndex);

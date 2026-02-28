@@ -70,6 +70,7 @@ struct VolumeParams
     float maxStepDistance;  // Maximum step size
     float lightInfluence;   // Multiplier for directional light contribution
     float ambientInfluence; // Multiplier for ambient light contribution
+    float spotLightInfluence; // Multiplier for spot light contribution
 };
 
 // ============================================================================
@@ -469,7 +470,7 @@ RayMarchResult RayMarchVolume(
                     float atten = ComputeSpotAttenuation(sampleWS, spotLights[0]);
                     if (atten > 0.001)
                     {
-                        float3 spotContrib = curDensity * spotLights[0].color * spotLights[0].params.w * atten * params.lightInfluence * rampColor;
+                        float3 spotContrib = curDensity * spotLights[0].color * spotLights[0].params.w * atten * params.spotLightInfluence * rampColor;
                         lightenergy += spotContrib * transmittance;
                     }
                 }
@@ -480,7 +481,7 @@ RayMarchResult RayMarchVolume(
                     float atten = ComputeSpotAttenuation(sampleWS, spotLights[1]);
                     if (atten > 0.001)
                     {
-                        float3 spotContrib = curDensity * spotLights[1].color * spotLights[1].params.w * atten * params.lightInfluence * rampColor;
+                        float3 spotContrib = curDensity * spotLights[1].color * spotLights[1].params.w * atten * params.spotLightInfluence * rampColor;
                         lightenergy += spotContrib * transmittance;
                     }
                 }

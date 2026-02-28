@@ -84,6 +84,9 @@ namespace OpenVDB
         [SerializeField]
         Light[] m_spotLights = new Light[0];
 
+        [SerializeField, Range(0f, 5f)]
+        float m_spotLightInfluence = 1.0f;
+
         [Header("Shadow Casting")]
         [SerializeField]
         bool m_enableShadowCasting = false;
@@ -201,6 +204,7 @@ namespace OpenVDB
         static readonly int s_spotLight1ColorId = Shader.PropertyToID("_SpotLight1_Color");
         static readonly int s_spotLight1ParamsId = Shader.PropertyToID("_SpotLight1_Params");
         static readonly int s_spotLightCountId = Shader.PropertyToID("_SpotLightCount");
+        static readonly int s_spotLightInfluenceId = Shader.PropertyToID("_SpotLightInfluence");
 
         // Realtime-specific IDs
         static readonly int s_occupancyGridId = Shader.PropertyToID("_OccupancyGrid");
@@ -272,7 +276,7 @@ namespace OpenVDB
         // Mode Switching
         // ====================================================================
 
-        internal static bool IsHDRP()
+        public static bool IsHDRP()
         {
             var pipeline = GraphicsSettings.currentRenderPipeline;
             if (pipeline == null) return false;
@@ -364,6 +368,7 @@ namespace OpenVDB
             if (m_enableSpotLights)
             {
                 SyncSpotLights();
+                m_propertyBlock.SetFloat(s_spotLightInfluenceId, m_spotLightInfluence);
             }
 
             // Mode-specific params
