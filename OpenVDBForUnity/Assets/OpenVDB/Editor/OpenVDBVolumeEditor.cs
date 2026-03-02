@@ -53,6 +53,9 @@ namespace OpenVDB.Editor
         SerializedProperty m_phaseAnisotropy;
         SerializedProperty m_occupancyComputeShader;
 
+        // Debug
+        SerializedProperty m_debugMode;
+
         // Foldout states
         bool m_showRendering = true;
         bool m_showLighting = true;
@@ -113,6 +116,9 @@ namespace OpenVDB.Editor
             m_enableMultiScatter = serializedObject.FindProperty("m_enableMultiScatter");
             m_phaseAnisotropy = serializedObject.FindProperty("m_phaseAnisotropy");
             m_occupancyComputeShader = serializedObject.FindProperty("m_occupancyComputeShader");
+
+            // Debug
+            m_debugMode = serializedObject.FindProperty("m_debugMode");
 
             m_lastRenderMode = (VolumeRenderMode)m_renderMode.enumValueIndex;
         }
@@ -361,6 +367,15 @@ namespace OpenVDB.Editor
                     EditorGUI.indentLevel--;
                 }
             }
+
+            // ---- Debug ----
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Debug", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(m_debugMode, new GUIContent("Debug Mode"));
+            EditorGUILayout.HelpBox(
+                "0: Normal  1: World Position  2: Spot Distance\n" +
+                "3: Dist Atten  4: Cone Atten  5: Combined Atten",
+                MessageType.None);
 
             serializedObject.ApplyModifiedProperties();
         }

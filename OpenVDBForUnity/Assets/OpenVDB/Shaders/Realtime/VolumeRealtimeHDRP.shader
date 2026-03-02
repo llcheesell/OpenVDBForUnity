@@ -65,6 +65,9 @@ Shader "OpenVDB/Realtime/HDRP"
         [Toggle(ENABLE_DEPTH_WRITE)] _EnableDepthWrite("Write Depth", Float) = 1
         [Toggle(ENABLE_TRACE_DISTANCE_LIMITED)] _EnableSceneDepthClip("Clip Against Scene Depth", Float) = 1
 
+        [Header(Debug)]
+        _DebugMode ("Debug Mode (0=Off)", Int) = 0
+
         [KeywordEnum(Off, Front, Back)] _Cull("Culling", Int) = 0
     }
 
@@ -170,6 +173,9 @@ Shader "OpenVDB/Realtime/HDRP"
             float _LightInfluence;
             float _AmbientInfluence;
             float _SpotLightInfluence;
+
+            // Debug
+            int _DebugMode;
 
             // Temporal
             float _FrameIndex;
@@ -301,6 +307,7 @@ Shader "OpenVDB/Realtime/HDRP"
                 params.lightInfluence = _LightInfluence;
                 params.ambientInfluence = _AmbientInfluence;
                 params.spotLightInfluence = _SpotLightInfluence;
+                params.debugMode = _DebugMode;
 
                 #ifdef ENABLE_TEMPORAL_JITTER
                 params.temporalOffset = TemporalNoise(input.positionCS.xy, _FrameIndex);
@@ -344,7 +351,16 @@ Shader "OpenVDB/Realtime/HDRP"
                 }
 
                 FragOutput o;
-                o.color = marchResult.color;
+
+                // Debug output: override color with debug visualization
+                if (_DebugMode > 0 && marchResult.hasHit)
+                {
+                    o.color = float4(marchResult.debugValue, 1.0);
+                }
+                else
+                {
+                    o.color = marchResult.color;
+                }
 
                 #ifdef ENABLE_DEPTH_WRITE
                 float3 depthWorldPos = TransformObjectToWorld(marchResult.firstHitPos);

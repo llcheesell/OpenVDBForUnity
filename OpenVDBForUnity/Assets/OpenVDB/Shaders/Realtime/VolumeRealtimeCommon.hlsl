@@ -50,6 +50,7 @@ struct RayMarchResult
     float3 firstHitPos;   // Position of first hit in local space
     bool hasHit;          // Whether any voxel was hit
     float transmittance;  // Final transmittance
+    float3 debugValue;    // Debug visualization output
 };
 
 struct VolumeParams
@@ -71,6 +72,7 @@ struct VolumeParams
     float lightInfluence;   // Multiplier for directional light contribution
     float ambientInfluence; // Multiplier for ambient light contribution
     float spotLightInfluence; // Multiplier for spot light contribution
+    int debugMode;            // 0=off, 1=worldPos, 2=spotDist, 3=distAtten, 4=coneAtten, 5=combinedAtten
 };
 
 // ============================================================================
@@ -106,6 +108,29 @@ float ComputeSpotAttenuation(float3 worldPos, SpotLightData light)
     float coneAtten = saturate(cosAngle * angleScale + angleOffset);
     coneAtten *= coneAtten;
 
+    return distAtten * coneAtten;
+}
+
+// Debug overload: also returns per-component attenuation info
+float ComputeSpotAttenuation(float3 worldPos, SpotLightData light, out float3 debugInfo)
+{
+    float range = light.params.x;
+    float angleScale = light.params.y;
+    float angleOffset = light.params.z;
+
+    float3 toLight = light.position - worldPos;
+    float dist = length(toLight);
+    float3 L = toLight / max(dist, 0.0001);
+
+    float distNorm = saturate(dist / max(range, 0.0001));
+    float distAtten = 1.0 - distNorm;
+    distAtten *= distAtten;
+
+    float cosAngle = dot(light.direction, -L);
+    float coneAtten = saturate(cosAngle * angleScale + angleOffset);
+    coneAtten *= coneAtten;
+
+    debugInfo = float3(distNorm, distAtten, coneAtten);
     return distAtten * coneAtten;
 }
 #endif
@@ -305,6 +330,7 @@ RayMarchResult RayMarchVolume(
     result.firstHitPos = ray.origin;
     result.hasHit = false;
     result.transmittance = 1.0;
+    result.debugValue = float3(0, 0, 0);
 
     VolumeAABB aabb;
     aabb.bmin = float3(-0.5, -0.5, -0.5);
@@ -465,13 +491,40 @@ RayMarchResult RayMarchVolume(
             {
                 float3 sampleWS = mul(UNITY_MATRIX_M, float4(pos, 1)).xyz;
 
+                // Debug: capture world position for first dense sample
+                if (params.debugMode == 1 && curDensity > 0.001 && !result.hasHit)
+                {
+                    // Remap world position to [0,1] range for visualization (assumes coords in -10..10)
+                    result.debugValue = frac(sampleWS * 0.1);
+                }
+
                 // Spot light 0
                 {
-                    float atten = ComputeSpotAttenuation(sampleWS, spotLights[0]);
+                    float3 dbgInfo = float3(0, 0, 0);
+                    float atten;
+                    if (params.debugMode > 0)
+                    {
+                        atten = ComputeSpotAttenuation(sampleWS, spotLights[0], dbgInfo);
+                    }
+                    else
+                    {
+                        atten = ComputeSpotAttenuation(sampleWS, spotLights[0]);
+                    }
+
                     if (atten > 0.001)
                     {
                         float3 spotContrib = curDensity * spotLights[0].color * spotLights[0].params.w * atten * params.spotLightInfluence * rampColor;
                         lightenergy += spotContrib * transmittance;
+                    }
+
+                    // Debug: accumulate attenuation info weighted by density and transmittance
+                    if (params.debugMode >= 2 && curDensity > 0.001)
+                    {
+                        float weight = curDensity * transmittance;
+                        if (params.debugMode == 2) result.debugValue += float3(1.0 - dbgInfo.x, 1.0 - dbgInfo.x, 1.0 - dbgInfo.x) * weight; // distance (closer = brighter)
+                        if (params.debugMode == 3) result.debugValue += float3(dbgInfo.y, dbgInfo.y, dbgInfo.y) * weight; // distAtten
+                        if (params.debugMode == 4) result.debugValue += float3(dbgInfo.z, dbgInfo.z, dbgInfo.z) * weight; // coneAtten
+                        if (params.debugMode == 5) result.debugValue += float3(atten, atten, atten) * weight; // combined
                     }
                 }
 

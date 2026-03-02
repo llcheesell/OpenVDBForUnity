@@ -97,6 +97,10 @@ namespace OpenVDB
         [SerializeField, Range(0.001f, 0.1f)]
         float m_shadowDensityThreshold = 0.01f;
 
+        [Header("Debug")]
+        [SerializeField, Range(0, 5)]
+        int m_debugMode = 0;
+
         [Header("Performance")]
         [SerializeField]
         bool m_autoSyncLight = true;
@@ -205,6 +209,9 @@ namespace OpenVDB
         static readonly int s_spotLight1ParamsId = Shader.PropertyToID("_SpotLight1_Params");
         static readonly int s_spotLightCountId = Shader.PropertyToID("_SpotLightCount");
         static readonly int s_spotLightInfluenceId = Shader.PropertyToID("_SpotLightInfluence");
+
+        // Debug
+        static readonly int s_debugModeId = Shader.PropertyToID("_DebugMode");
 
         // Realtime-specific IDs
         static readonly int s_occupancyGridId = Shader.PropertyToID("_OccupancyGrid");
@@ -370,6 +377,9 @@ namespace OpenVDB
                 SyncSpotLights();
                 m_propertyBlock.SetFloat(s_spotLightInfluenceId, m_spotLightInfluence);
             }
+
+            // Debug mode
+            m_propertyBlock.SetInt(s_debugModeId, m_debugMode);
 
             // Mode-specific params
             if (m_renderMode == VolumeRenderMode.Realtime)
@@ -625,6 +635,46 @@ namespace OpenVDB
             m_minStepDistance = preset.minStepDistance;
             m_maxStepDistance = preset.maxStepDistance;
             m_occupancyDivisor = preset.occupancyGridDivisor;
+        }
+
+        // ====================================================================
+        // Gizmos
+        // ====================================================================
+
+        void OnDrawGizmosSelected()
+        {
+            if (!m_enableSpotLights || m_spotLights == null) return;
+
+            foreach (var light in m_spotLights)
+            {
+                if (light == null || !light.enabled) continue;
+
+                // Light position marker
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireSphere(light.transform.position, 0.1f);
+
+                // Light direction ray (length = range)
+                Gizmos.color = Color.red;
+                Gizmos.DrawRay(light.transform.position, light.transform.forward * light.range);
+
+                // Range sphere
+                Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
+                Gizmos.DrawWireSphere(light.transform.position, light.range);
+
+                // Cone visualization at range distance
+                float outerAngleRad = light.spotAngle * 0.5f * Mathf.Deg2Rad;
+                float coneRadius = Mathf.Tan(outerAngleRad) * light.range;
+                Vector3 coneEnd = light.transform.position + light.transform.forward * light.range;
+
+                Gizmos.color = new Color(1f, 0.5f, 0f, 0.5f);
+                Vector3 right = light.transform.right * coneRadius;
+                Vector3 up = light.transform.up * coneRadius;
+                // Draw cone edges
+                Gizmos.DrawLine(light.transform.position, coneEnd + right);
+                Gizmos.DrawLine(light.transform.position, coneEnd - right);
+                Gizmos.DrawLine(light.transform.position, coneEnd + up);
+                Gizmos.DrawLine(light.transform.position, coneEnd - up);
+            }
         }
 
         // ====================================================================

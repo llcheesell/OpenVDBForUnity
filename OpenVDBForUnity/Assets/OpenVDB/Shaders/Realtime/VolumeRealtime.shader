@@ -56,6 +56,9 @@ Shader "OpenVDB/Realtime/Standard"
         [Toggle(ENABLE_DIRECTIONAL_LIGHT)] _EnableDirectionalLight("Directional Light", Float) = 1
         [Toggle(ENABLE_AMBIENT_LIGHT)] _EnableAmbientLight("Ambient Light", Float) = 1
 
+        [Header(Debug)]
+        _DebugMode ("Debug Mode (0=Off)", Int) = 0
+
         [KeywordEnum(Off, Front, Back)] _Cull("Culling", Int) = 0
     }
 
@@ -147,6 +150,9 @@ Shader "OpenVDB/Realtime/Standard"
             float _LightInfluence;
             float _AmbientInfluence;
             float _SpotLightInfluence;
+
+            // Debug
+            int _DebugMode;
 
             // Temporal
             float _FrameIndex;
@@ -243,6 +249,7 @@ Shader "OpenVDB/Realtime/Standard"
                 params.lightInfluence = _LightInfluence;
                 params.ambientInfluence = _AmbientInfluence;
                 params.spotLightInfluence = _SpotLightInfluence;
+                params.debugMode = _DebugMode;
 
                 #ifdef ENABLE_TEMPORAL_JITTER
                 params.temporalOffset = TemporalNoise(i.vertex.xy, _FrameIndex);
@@ -286,7 +293,17 @@ Shader "OpenVDB/Realtime/Standard"
                 }
 
                 FragOutput o;
-                o.color = marchResult.color;
+
+                // Debug output: override color with debug visualization
+                if (_DebugMode > 0 && marchResult.hasHit)
+                {
+                    o.color = float4(marchResult.debugValue, 1.0);
+                }
+                else
+                {
+                    o.color = marchResult.color;
+                }
+
                 float4 depthClip = UnityObjectToClipPos(float4(marchResult.firstHitPos, 1.0));
                 #if defined(SHADER_TARGET_GLSL) || defined(SHADER_API_GLES) || defined(SHADER_API_GLES3)
                 o.depth = (depthClip.z / depthClip.w) * 0.5 + 0.5;
